@@ -74,8 +74,9 @@ h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
 h_pool2 = max_pool_2x2(h_conv2)
 
 convOutputSize = heightInpQuarter * widthInpQuarter * 64
-W_fc1 = weight_variable([convOutputSize, 1024])
-b_fc1 = bias_variable([1024])
+mlpOutSize1 = 1024
+W_fc1 = weight_variable([convOutputSize, mlpOutSize1])
+b_fc1 = bias_variable([mlpOutSize1])
 
 h_pool2_flat = tf.reshape(h_pool2, [-1, convOutputSize])
 h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
@@ -83,7 +84,8 @@ h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 keep_prob = tf.placeholder(tf.float32)
 h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
-W_fc2 = weight_variable([1024, sizeOut])
+mlpInSize2 = mlpOutSize1
+W_fc2 = weight_variable([mlpInSize2, sizeOut])
 b_fc2 = bias_variable([sizeOut])
 
 y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
@@ -103,7 +105,7 @@ else:
     init = tf.global_variables_initializer()
     sess.run(init)
 
-for i in range(1000):
+for i in range(2000):
     batchInput, batchOutput = dataSet.getTrainingBatch(100)
     stepCurr, lossCurr = sess.run([train_step, loss], {x_image: batchInput, y_: batchOutput, keep_prob: 0.5})
     print("%d: loss is %f" % (i, lossCurr))

@@ -6,6 +6,10 @@ from random import randint
 from config_file import readConfigFile
 from ast import literal_eval
 
+from imageset_constants import FIELD_NAME_X
+from imageset_constants import FIELD_NAME_Y
+from imageset_constants import FIELD_NAME_ANGLE
+
 class DataSet:
     def __init__(self):
         self.trainingProportion_ = 0.85
@@ -33,10 +37,13 @@ class DataSet:
             imageNames.append(parentDir + "/" + imageName)
             for objName in dictFiles[imageName]:
 	        objectData = literal_eval(dictFiles[imageName][objName])
+                newData = [objectData[FIELD_NAME_X], \
+                           objectData[FIELD_NAME_Y], \
+                           objectData[FIELD_NAME_ANGLE]]
                 if outputData is None:
-                    outputData = [objectData["x_rel"], objectData["y_rel"]]
+                    outputData = newData
                 else:
-                    outputData = np.vstack([outputData, [objectData["x_rel"], objectData["y_rel"]]])
+                    outputData = np.vstack([outputData, newData])
                 break
 
         dataSize = len(imageNames)
@@ -163,4 +170,3 @@ class DataSet:
     #def getTestingBatch(self):
         #return (self.inputTesting_, self.outputTesting_)
 
-       

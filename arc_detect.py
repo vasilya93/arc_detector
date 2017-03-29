@@ -26,12 +26,12 @@ TESTSET_DIR = "testset"
 MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
-DO_USE_PREV_MODEL = False
+DO_CROP = False
 
-top = 320
-left = 432
-right = 1036
-bottom = 629
+top = 221
+left = 635
+right = 1134
+bottom = 479
 
 def divideByTwo(number):
     if (number % 2 == 0):
@@ -54,6 +54,22 @@ def max_pool_2x2(x):
   return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                         strides=[1, 2, 2, 1], padding='SAME')
 
+def constructMlp(input, inputSize, layerSize, outSize, keepProb = None):
+    if keepProb is None:
+        keepProb = tf.placeholder(tf.float32)
+
+    W_fc1 = weight_variable([inputSize, layerSize])
+    b_fc1 = bias_variable([layerSize])
+
+    h_fc1 = tf.nn.relu(tf.matmul(input, W_fc1) + b_fc1)
+
+    h_fc1_drop = tf.nn.dropout(h_fc1, keepProb)
+
+    W_fc2 = weight_variable([layerSize, outSize])
+    b_fc2 = bias_variable([outSize])
+
+    output = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+    return (output, keepProb)
 
 dataSet = DataSet()
 isSuccess = dataSet.prepareDataset(DATASET_DIR)
@@ -89,19 +105,12 @@ h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
 h_pool2 = max_pool_2x2(h_conv2)
 
 convOutputSize = heightInpQuarter * widthInpQuarter * 64
-W_fc1 = weight_variable([convOutputSize, 1024])
-b_fc1 = bias_variable([1024])
-
 h_pool2_flat = tf.reshape(h_pool2, [-1, convOutputSize])
-h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
-keep_prob = tf.placeholder(tf.float32)
-h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-
-W_fc2 = weight_variable([1024, sizeOut])
-b_fc2 = bias_variable([sizeOut])
-
-y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+mlpLayerSize = 1024
+(yConv1, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayerSize, 2)
+(yConv2, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayerSize, 2, keepProb)
+yConv = tf.concat([yConv1, yConv2], 1)
 
 saver = tf.train.Saver()
 currentDir = os.getcwd()
@@ -118,7 +127,10 @@ inputData = np.zeros((1, heightInp, widthInp, channelsInp), np.float32)
 for imageName in testImageNames:
     imagePath = TESTSET_DIR + "/" + imageName
     image = cv2.imread(imagePath)
-    image = image[top:bottom, left:right]
+
+    if DO_CROP:
+        image = image[top:bottom, left:right]
+
     currentHeight, currentWidth, currentChannels = image.shape
     currentHeightHalf = currentHeight / 2
     currentWidthHalf = currentWidth / 2
@@ -127,11 +139,15 @@ for imageName in testImageNames:
     inputData[0, :, :, :] = imageResized[:, :, :]
 
     start_time = time.time()
-    yCurr = sess.run(y_conv, {x_image: inputData, keep_prob: 1.0})
+    yCurr = sess.run(yConv, {x_image: inputData, keepProb: 1.0})
 
-    objectX = np.int(yCurr[0][0] * currentWidthHalf + currentWidthHalf)
-    objectY = np.int(yCurr[0][1] * currentHeightHalf + currentHeightHalf)
-    cv2.circle(image, (objectX, objectY), 10, (255, 255, 255), 2)
+    objectX1 = np.int(yCurr[0][0] * currentWidthHalf + currentWidthHalf)
+    objectY1 = np.int(yCurr[0][1] * currentHeightHalf + currentHeightHalf)
+    cv2.circle(image, (objectX1, objectY1), 10, (255, 255, 255), 2)
+
+    objectX2 = np.int(yCurr[0][2] * currentWidthHalf + currentWidthHalf)
+    objectY2 = np.int(yCurr[0][3] * currentHeightHalf + currentHeightHalf)
+    cv2.circle(image, (objectX2, objectY2), 10, (0, 255, 255), 2)
 
     cv2.imshow("image", image)
     cv2.waitKey(0)

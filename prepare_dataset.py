@@ -31,13 +31,14 @@ class DataSet:
         imageNames = []
         for imageName in dictFiles:
             imageNames.append(parentDir + "/" + imageName)
+            newData = []
             for objName in dictFiles[imageName]:
-	        objectData = literal_eval(dictFiles[imageName][objName])
-                if outputData is None:
-                    outputData = [objectData["x_rel"], objectData["y_rel"]]
-                else:
-                    outputData = np.vstack([outputData, [objectData["x_rel"], objectData["y_rel"]]])
-                break
+                objectData = literal_eval(dictFiles[imageName][objName])
+                newData.extend([objectData["x_rel"], objectData["y_rel"]])
+            if outputData is None:
+                outputData = newData
+            else:
+                outputData = np.vstack([outputData, newData])
 
         dataSize = len(imageNames)
         if dataSize == 0:

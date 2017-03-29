@@ -90,21 +90,24 @@ sizeOut = dataSet.getOutputSize()
 
 sess = tf.InteractiveSession()
 
-W_conv1 = weight_variable([5, 5, channelsInp, 32])
-b_conv1 = bias_variable([32])
+convFeaturesNum1 = 48
+W_conv1 = weight_variable([5, 5, channelsInp, convFeaturesNum1])
+b_conv1 = bias_variable([convFeaturesNum1])
 
 x_image = tf.placeholder(tf.float32, shape = (None, heightInp, widthInp, channelsInp))
+y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
 
 h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
 h_pool1 = max_pool_2x2(h_conv1)
 
-W_conv2 = weight_variable([5, 5, 32, 64])
-b_conv2 = bias_variable([64])
+convFeaturesNum2 = convFeaturesNum1 * 2
+W_conv2 = weight_variable([5, 5, convFeaturesNum1, convFeaturesNum2])
+b_conv2 = bias_variable([convFeaturesNum2])
 
 h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
 h_pool2 = max_pool_2x2(h_conv2)
 
-convOutputSize = heightInpQuarter * widthInpQuarter * 64
+convOutputSize = heightInpQuarter * widthInpQuarter * convFeaturesNum2
 h_pool2_flat = tf.reshape(h_pool2, [-1, convOutputSize])
 
 mlpLayerSize = 1024

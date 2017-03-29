@@ -76,8 +76,9 @@ print("sizeOut is %d" % sizeOut)
 
 sess = tf.InteractiveSession()
 
-W_conv1 = weight_variable([5, 5, channelsInp, 32])
-b_conv1 = bias_variable([32])
+convFeaturesNum1 = 48
+W_conv1 = weight_variable([5, 5, channelsInp, convFeaturesNum1])
+b_conv1 = bias_variable([convFeaturesNum1])
 
 x_image = tf.placeholder(tf.float32, shape = (None, heightInp, widthInp, channelsInp))
 y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
@@ -85,13 +86,14 @@ y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
 h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
 h_pool1 = max_pool_2x2(h_conv1)
 
-W_conv2 = weight_variable([5, 5, 32, 64])
-b_conv2 = bias_variable([64])
+convFeaturesNum2 = convFeaturesNum1 * 2
+W_conv2 = weight_variable([5, 5, convFeaturesNum1, convFeaturesNum2])
+b_conv2 = bias_variable([convFeaturesNum2])
 
 h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
 h_pool2 = max_pool_2x2(h_conv2)
 
-convOutputSize = heightInpQuarter * widthInpQuarter * 64
+convOutputSize = heightInpQuarter * widthInpQuarter * convFeaturesNum2
 h_pool2_flat = tf.reshape(h_pool2, [-1, convOutputSize])
 
 mlpLayerSize = 1024
@@ -99,10 +101,17 @@ mlpLayerSize = 1024
 (yConv2, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayerSize, 2, keepProb)
 yConv = tf.concat([yConv1, yConv2], 1)
 
+averageAbsDelta = tf.abs(yConv - y_) / sizeOut
+absLoss = tf.reduce_sum(averageAbsDelta)
+
 squared_deltas = tf.square(yConv - y_)
 loss = tf.reduce_sum(squared_deltas)
 
 train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+
+#print "shape of squared_deltas is " + str(squared_deltas.get_shape())
+#print "shape of loss is " + str(loss.get_shape())
+#print "shape of train_step is " + str(train_step.get_shape())
 
 saver = tf.train.Saver()
 currentDir = os.getcwd()
@@ -115,8 +124,16 @@ else:
     init = tf.global_variables_initializer()
     sess.run(init)
 
-for i in range(1000):
-    batchInput, batchOutput = dataSet.getTrainingBatch(100)
+trainBatchSize = 100
+testBatchSize = 1000
+for i in range(100):
+    if i % 10 == 0:
+        batchInput, batchOutput = dataSet.getTestingBatch(testBatchSize)
+        absLossCurr = sess.run(absLoss, {x_image: batchInput, y_: batchOutput, keepProb: 1.0})
+        absLossCurr = absLossCurr / testBatchSize
+        print("%d: average error is %f" %(i, absLossCurr))
+
+    batchInput, batchOutput = dataSet.getTrainingBatch(trainBatchSize)
     stepCurr, lossCurr = sess.run([train_step, loss], {x_image: batchInput, y_: batchOutput, keepProb: 0.5})
     print("%d: loss is %f" % (i, lossCurr))
 

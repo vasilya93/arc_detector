@@ -6,6 +6,9 @@ from random import randint
 from config_file import readConfigFile
 from ast import literal_eval
 
+# there must be a functions which accepts just filenames, and on the basis of
+# the filenames it prepares all the data and images
+
 class DataSet:
     def __init__(self):
         self.trainingProportion_ = 0.85
@@ -24,6 +27,7 @@ class DataSet:
         self.outputTraining_ = None
         self.outputTesting_ = None
         self.outputValidation_ = None
+
 
     def prepareDataset(self, parentDir):
         dictFiles = readConfigFile(parentDir)
@@ -63,15 +67,30 @@ class DataSet:
 
         return True
 
+
+    def getTrainingSetSize(self):
+        return len(self.imageNamesTraining_)
+
+
+    def getTestingSetSize(self):
+        return len(self.imageNamesTesting_)
+
+
+    def getValidationSetSize(self):
+        return len(self.imageNamesValidation_)
+
+
     def getOutputSize(self):
         if self.outputTraining_ is None:
             return 0
         else:
             return self.outputTraining_.shape[1]
 
+
     def getInputSize(self):
         height, width, channels = self.getInputDimensions()
         return height * width * channels
+
 
     def getInputDimensions(self):
         if len(self.imageNamesTesting_) == 0:
@@ -83,51 +102,50 @@ class DataSet:
             else:
                 return image.shape
 
+
     def setRandomTrainingBeginning(self):
         setSize = len(self.imageNamesTraining_)
         self.trainingBatchBeg_ = randint(0, setSize - 1)
-        
 
     def getTrainingBatch(self, batchSize):
-        indeces = self._prepareTrainingIndeces(batchSize)
+        return self._getBatch(batchSize, \
+                self.imageNamesTraining_, \
+                self.trainingBatchBeg_, \
+                self.outputTraining_)
+
+    def getTestingBatch(self, batchSize):
+        return self._getBatch(batchSize, \
+                self.imageNamesTesting_, \
+                self.testingBatchBeg_, \
+                self.outputTesting_)
+
+    def _getBatch(self, batchSize, imageNames, batchBeg, output):
+        indeces = self._prepareTrainingIndeces(batchSize, imageNames, batchBeg)
         if indeces == None:
             return (None, None)
 
-        batchImageNames = [self.imageNamesTraining_[i] for i in indeces]
+        batchImageNames = [imageNames[i] for i in indeces]
         batchInput = self._prepareInputMatrices(batchImageNames)
 
-        batchOutput = [self.outputTraining_[i] for i in indeces]
+        batchOutput = [output[i] for i in indeces]
 
         return (batchInput, batchOutput)
 
-    #def getValidationBatch(self, batchSize):
-    #    indeces = self._prepareValidationIndeces(batchSize)
-    #    if indeces == None:
-    #        return (None, None)
-    #
-    #    batchImageNames = [self.imageNamesValidation_[i] for i in indeces]
-    #    batchInput = self._prepareInputMatrices(batchImageNames)
-
-    #    batchOutput = np.array([self.outputValidation_[i] for i in indeces])
-
-    #    return (batchInput, batchOutput)
-
-
-    def _prepareTrainingIndeces(self, batchSize):
-        setSize = len(self.imageNamesTraining_) #imageNamesTraining
+    def _prepareTrainingIndeces(self, batchSize, imageNames, batchBeg):
+        setSize = len(imageNames)
         if batchSize > setSize:
             return None
 
-        leftToEnd = setSize - self.trainingBatchBeg_ #trainingBatchBeg
+        leftToEnd = setSize - batchBeg
         if leftToEnd >= batchSize:
-            batchBegNew = self.trainingBatchBeg_ + batchSize
-            indeces = range(self.trainingBatchBeg_, batchBegNew)
-            self.trainingBatchBeg_ = batchBegNew
+            batchBegNew = batchBeg + batchSize
+            indeces = range(batchBeg, batchBegNew)
+            batchBeg = batchBegNew
         else:
-            indeces = range(self.trainingBatchBeg_, setSize)
+            indeces = range(batchBeg, setSize)
             leftToCopy = batchSize - leftToEnd
             indeces.extend(range(0, leftToCopy))
-            self.trainingBatchBeg_ = leftToCopy
+            batchBeg = leftToCopy
 
 	return indeces
 
@@ -160,8 +178,3 @@ class DataSet:
                 continue
     	    inputData[i, :, :, :] = imageCurrent[:, :, :]
         return inputData
-
-    #def getTestingBatch(self):
-        #return (self.inputTesting_, self.outputTesting_)
-
-       

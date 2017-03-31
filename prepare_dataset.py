@@ -28,6 +28,7 @@ class DataSet:
         self.outputTesting_ = None
         self.outputValidation_ = None
 
+        self.propertyNames_ = ["x_rel", "y_rel"]
 
     def prepareDataset(self, parentDir):
         dictFiles = readConfigFile(parentDir)
@@ -38,7 +39,10 @@ class DataSet:
             newData = []
             for objName in dictFiles[imageName]:
                 objectData = literal_eval(dictFiles[imageName][objName])
-                newData.extend([objectData["x_rel"], objectData["y_rel"]])
+                addedData = []
+                for propertyName in self.propertyNames_:
+                    addedData.append(objectData[propertyName])
+                newData.extend(addedData)
             if outputData is None:
                 outputData = newData
             else:
@@ -79,8 +83,10 @@ class DataSet:
     def getValidationSetSize(self):
         return len(self.imageNamesValidation_)
 
+    def getOutSizeObject(self):
+        return len(self.propertyNames_)
 
-    def getOutputSize(self):
+    def getOutSizeTotal(self):
         if self.outputTraining_ is None:
             return 0
         else:
@@ -101,7 +107,6 @@ class DataSet:
                 return (0, 0, 0)
             else:
                 return image.shape
-
 
     def setRandomTrainingBeginning(self):
         setSize = len(self.imageNamesTraining_)

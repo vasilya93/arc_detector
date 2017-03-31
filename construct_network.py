@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import tensorflow as tf
+import numpy as np
 
 def weightVariable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1)
@@ -9,9 +10,15 @@ def biasVariable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
+# Characteristics of convolutional layer:
+# - window size (5x5)
+# - number of output channels
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
 
+# Characteristics of pooling layer:
+# - window size
+# - stride
 def maxPool2x2(x):
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                         strides=[1, 2, 2, 1], padding='SAME')
@@ -27,7 +34,7 @@ def constructMlp(mlpInput, inputSize, layerSizes, outSize, keepProb = None):
     layerOut = tf.nn.relu(tf.matmul(mlpInput, weightLayer) + biasLayer)
     layerOutDrop = tf.nn.dropout(layerOut, keepProb)
 
-    for i in range(1, len(layerSizes)):
+    for i in range(1, layersNum):
         weightLayer = weightVariable([layerSizes[i - 1], layerSizes[i]])
         biasLayer = biasVariable([layerSizes[i]])
         layerOut = tf.nn.relu(tf.matmul(layerOutDrop, weightLayer) + biasLayer)
@@ -39,3 +46,26 @@ def constructMlp(mlpInput, inputSize, layerSizes, outSize, keepProb = None):
     out = tf.matmul(layerOutDrop, weightOut) + biasOut
     return (out, keepProb)
 
+
+def constructCnn(nssInput, channelsInp, layerSizes, convWindowSize = None):
+    if convWindowSize is None:
+        convWindowSize = 5
+
+    layersNum = len(layerSizes)
+
+    weightConv = weightVariable([convWindowSize, convWindowSize, channelsInp, layerSizes[0]])
+    biasConv = biasVariable([layerSizes[0]])
+    outConv = tf.nn.relu(conv2d(nssInput, weightConv) + biasConv)
+    outPool = maxPool2x2(outConv)
+
+    for i in range(1, layersNum):
+        weightConv = weightVariable([convWindowSize, convWindowSize, layerSizes[i - 1], layerSizes[i]])
+        biasConv = biasVariable([layerSizes[i]])
+        outConv = tf.nn.relu(conv2d(outPool, weightConv) + biasConv)
+        outPool = maxPool2x2(outConv)
+
+    [outHeight, outWidth, outChannels] = outPool.get_shape()[1:4]
+    convOutputSize = np.int(outHeight * outWidth * outChannels)
+    outFlat = tf.reshape(outPool, [-1, convOutputSize])
+
+    return outFlat

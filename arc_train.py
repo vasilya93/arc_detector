@@ -7,8 +7,10 @@ import tensorflow as tf
 import os.path
 import os
 
+import numpy as np
+
 from construct_network import weightVariable, biasVariable, \
-        conv2d, maxPool2x2, constructMlp
+        conv2d, maxPool2x2, constructMlp, constructCnn
 
 # TODO: save size of the image in the dir with the
 # model
@@ -18,7 +20,6 @@ MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
 DO_USE_PREV_MODEL = False 
-
 
 def divideByTwo(number):
     if (number % 2 == 0):
@@ -33,11 +34,6 @@ if not isSuccess:
     exit(1)
 
 heightInp, widthInp, channelsInp = dataSet.getInputDimensions()
-heightInpHalf = divideByTwo(heightInp)
-heightInpQuarter = divideByTwo(heightInpHalf)
-
-widthInpHalf = divideByTwo(widthInp)
-widthInpQuarter = divideByTwo(widthInpHalf)
 
 sizeOut = dataSet.getOutSizeTotal()
 sizeOutObject = dataSet.getOutSizeObject()
@@ -47,35 +43,18 @@ numObjects = sizeOut / sizeOutObject
 
 sess = tf.InteractiveSession()
 
-convFeaturesNum1 = 32
-W_conv1 = weightVariable([5, 5, channelsInp, convFeaturesNum1])
-b_conv1 = biasVariable([convFeaturesNum1])
-
 x_image = tf.placeholder(tf.float32, shape = (None, heightInp, widthInp, channelsInp))
 y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
 
-h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-h_pool1 = maxPool2x2(h_conv1)
-
-convFeaturesNum2 = convFeaturesNum1 * 2
-W_conv2 = weightVariable([5, 5, convFeaturesNum1, convFeaturesNum2])
-b_conv2 = biasVariable([convFeaturesNum2])
-
-h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-h_pool2 = maxPool2x2(h_conv2)
-
-convOutputSize = heightInpQuarter * widthInpQuarter * convFeaturesNum2
-h_pool2_flat = tf.reshape(h_pool2, [-1, convOutputSize])
-
-mlpLayerSize = 256
+cnnOut = constructCnn(x_image, channelsInp, [32, 64])
+cnnOutSize = np.int(cnnOut.get_shape()[1])
 
 mlpLayersSize = [256]
-
-(yConvCurrent, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayersSize, sizeOutObject)
+(yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, mlpLayersSize, sizeOutObject)
 yConvList = [yConvCurrent]
 
 for i in range(1, numObjects):
-    (yConvCurrent, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayersSize, sizeOutObject, keepProb)
+    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, mlpLayersSize, sizeOutObject, keepProb)
     yConvList.append(yConvCurrent)
 
 yConv = tf.concat(yConvList, 1)
@@ -101,7 +80,7 @@ else:
 
 trainBatchSize = 100
 testBatchSize = 1000
-for i in range(50):
+for i in range(21):
     if i % 10 == 0:
         batchInput, batchOutput = dataSet.getTestingBatch(testBatchSize)
         absLossCurr = sess.run(absLoss, {x_image: batchInput, y_: batchOutput, keepProb: 1.0})

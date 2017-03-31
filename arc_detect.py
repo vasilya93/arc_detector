@@ -12,6 +12,9 @@ import cv2
 
 import numpy as np
 
+from construct_network import weightVariable, biasVariable, \
+        conv2d, maxPool2x2, constructMlp
+
 # TODO: cosider possibility that the object searched is not in the
 # image, so there should be an output indicating whether the object
 # is present in the frame
@@ -39,38 +42,6 @@ def divideByTwo(number):
     else:
         return number / 2 + 1
 
-def weight_variable(shape):
-  initial = tf.truncated_normal(shape, stddev=0.1)
-  return tf.Variable(initial)
-
-def bias_variable(shape):
-  initial = tf.constant(0.1, shape=shape)
-  return tf.Variable(initial)
-
-def conv2d(x, W):
-  return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
-
-def max_pool_2x2(x):
-  return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                        strides=[1, 2, 2, 1], padding='SAME')
-
-def constructMlp(input, inputSize, layerSize, outSize, keepProb = None):
-    if keepProb is None:
-        keepProb = tf.placeholder(tf.float32)
-
-    W_fc1 = weight_variable([inputSize, layerSize])
-    b_fc1 = bias_variable([layerSize])
-
-    h_fc1 = tf.nn.relu(tf.matmul(input, W_fc1) + b_fc1)
-
-    h_fc1_drop = tf.nn.dropout(h_fc1, keepProb)
-
-    W_fc2 = weight_variable([layerSize, outSize])
-    b_fc2 = bias_variable([outSize])
-
-    output = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
-    return (output, keepProb)
-
 dataSet = DataSet()
 isSuccess = dataSet.prepareDataset(DATASET_DIR)
 if not isSuccess:
@@ -93,32 +64,32 @@ numObjects = sizeOut / sizeOutObject
 sess = tf.InteractiveSession()
 
 convFeaturesNum1 = 32
-W_conv1 = weight_variable([5, 5, channelsInp, convFeaturesNum1])
-b_conv1 = bias_variable([convFeaturesNum1])
+W_conv1 = weightVariable([5, 5, channelsInp, convFeaturesNum1])
+b_conv1 = biasVariable([convFeaturesNum1])
 
 x_image = tf.placeholder(tf.float32, shape = (None, heightInp, widthInp, channelsInp))
 y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
 
 h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-h_pool1 = max_pool_2x2(h_conv1)
+h_pool1 = maxPool2x2(h_conv1)
 
 convFeaturesNum2 = convFeaturesNum1 * 2
-W_conv2 = weight_variable([5, 5, convFeaturesNum1, convFeaturesNum2])
-b_conv2 = bias_variable([convFeaturesNum2])
+W_conv2 = weightVariable([5, 5, convFeaturesNum1, convFeaturesNum2])
+b_conv2 = biasVariable([convFeaturesNum2])
 
 h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-h_pool2 = max_pool_2x2(h_conv2)
+h_pool2 = maxPool2x2(h_conv2)
 
 convOutputSize = heightInpQuarter * widthInpQuarter * convFeaturesNum2
 h_pool2_flat = tf.reshape(h_pool2, [-1, convOutputSize])
 
-mlpLayerSize = 1024
+mlpLayersSize = [256]
 
-(yConvCurrent, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayerSize, sizeOutObject)
+(yConvCurrent, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayersSize, sizeOutObject)
 yConvList = [yConvCurrent]
 
 for i in range(1, numObjects):
-    (yConvCurrent, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayerSize, sizeOutObject, keepProb)
+    (yConvCurrent, keepProb) = constructMlp(h_pool2_flat, convOutputSize, mlpLayersSize, sizeOutObject, keepProb)
     yConvList.append(yConvCurrent)
 
 yConv = tf.concat(yConvList, 1)

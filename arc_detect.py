@@ -15,6 +15,8 @@ import numpy as np
 from construct_network import weightVariable, biasVariable, \
         conv2d, maxPool2x2, constructMlp, constructCnn
 
+from nn_config import NnConfig
+
 # TODO: cosider possibility that the object searched is not in the
 # image, so there should be an output indicating whether the object
 # is present in the frame
@@ -37,17 +39,19 @@ left = 635
 right = 1134
 bottom = 479
 
-def divideByTwo(number):
-    if (number % 2 == 0):
-        return number / 2
-    else:
-        return number / 2 + 1
-
 dataSet = DataSet()
 isSuccess = dataSet.prepareDataset(DATASET_DIR)
 if not isSuccess:
     print("Error: could not load dataset. Exiting...")
     exit(1)
+
+currentDir = os.getcwd()
+pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
+if not os.path.exists(pathCurrent):
+    print("Error: could not find current model directory. Exiting...")
+    exit(1)
+nnConfig = NnConfig()
+nnConfig.loadFromFile(pathCurrent)
 
 heightInp, widthInp, channelsInp = dataSet.getInputDimensions()
 
@@ -62,6 +66,8 @@ sess = tf.InteractiveSession()
 x_image = tf.placeholder(tf.float32, shape = (None, heightInp, widthInp, channelsInp))
 y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
 
+# Beginning of network construction
+
 cnnOut = constructCnn(x_image, channelsInp, [32, 64])
 cnnOutSize = np.int(cnnOut.get_shape()[1])
 
@@ -75,11 +81,9 @@ for i in range(1, numObjects):
 
 yConv = tf.concat(yConvList, 1)
 
+# End of network construction
+
 saver = tf.train.Saver()
-currentDir = os.getcwd()
-pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
-if not os.path.exists(pathCurrent):
-    print("Error: could not find current model directory. Exiting...")
 
 modelFilePath = pathCurrent + "/" + MODEL_FILENAME
 saver.restore(sess, modelFilePath)

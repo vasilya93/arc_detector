@@ -25,8 +25,12 @@ MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
 DO_USE_PREV_MODEL = False 
+IMPROVE_COUNTER_LIMIT = 10
 
-def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel):
+def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckImprovement = None):
+    if doCheckImprovement is None:
+        doCheckImprovement = False
+
     cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
             nnConfig.cnnLayersSize, \
             nnConfig.convWindowSize)
@@ -57,16 +61,33 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel):
     # Training the network
 
     testBatchSize = 1000
-    for i in range(nnConfig.optimizationIterationsNum):
-        if i % 25 == 0:
+    iterationCounter = 0
+    noImproveCounter = 0
+    minAbsLoss = float("inf")
+    while True:
+    #for i in range(nnConfig.optimizationIterationsNum):
+        if (not doCheckImprovement) and (iterationCounter >= nnConfig.optimizationIterationsNum):
+            break
+
+        if iterationCounter % 10 == 0:
             batchInput, batchOutput = dataSet.getTestingBatch(testBatchSize)
             absLossCurr = sess.run(absLoss, {phInput: batchInput, phOutput: batchOutput, keepProb: 1.0})
             absLossCurr = absLossCurr / testBatchSize
-            print("%d: average error is %f" % (i, absLossCurr))
+            print("%d: average error is %f" % (iterationCounter, absLossCurr))
+            if absLossCurr < minAbsLoss:
+                noImproveCounter = 0
+                minAbsLoss = absLossCurr
+            else:
+                noImproveCounter += 1
+                print("no improvement in error for %d iterations" % noImproveCounter)
+                if noImproveCounter > IMPROVE_COUNTER_LIMIT:
+                    break
 
         batchInput, batchOutput = dataSet.getTrainingBatch(nnConfig.batchSize)
         stepCurr, lossCurr = sess.run([train_step, loss], {phInput: batchInput, phOutput: batchOutput, keepProb: 0.5})
-        print("%d: loss is %f" % (i, lossCurr))
+        print("%d: loss is %f" % (iterationCounter, lossCurr))
+
+        iterationCounter += 1
 
     validationSetSize = dataSet.getValidationSetSize()
     batchInput, batchOutput = dataSet.getValidationBatch(validationSetSize)
@@ -126,12 +147,13 @@ phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 nnConfig.cnnLayersSize = [32, 64]
 nnConfig.convWindowSize = 3
 
-nnConfig.optimizationIterationsNum = 301
+nnConfig.optimizationIterationsNum = 3001
+
 nnConfig.optimizationStep = 1e-3
 nnConfig.batchSize = 100
 
 nnConfig.mlpLayersSize = [512]
-trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True)
+trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, doCheckImprovement = True)
 
 ###
 

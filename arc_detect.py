@@ -32,12 +32,12 @@ TESTSET_DIR = "testset"
 MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
-DO_CROP = False
+DO_CROP = True
 
-top = 221
-left = 635
-right = 1134
-bottom = 479
+top = 320
+left = 432
+right = 1036
+bottom = 629
 
 dataSet = DataSet()
 isSuccess = dataSet.prepareDataset(DATASET_DIR)
@@ -55,24 +55,35 @@ nnConfig.loadFromFile(pathCurrent)
 
 heightInp, widthInp, channelsInp = dataSet.getInputDimensions()
 
+if (nnConfig.heightInp != heightInp) or \
+        (nnConfig.widthInp != widthInp) or \
+        (nnConfig.channelsInp != channelsInp):
+    print("Error: dimensions of image in dataset and nn are different. Exiting...")
+    exit(1)
+
 sizeOut = dataSet.getOutSizeTotal()
 sizeOutObject = dataSet.getOutSizeObject()
 numObjects = sizeOut / sizeOutObject
+
+if nnConfig.sizeOut != sizeOut or \
+        nnConfig.sizeOutObject != sizeOutObject or \
+        nnConfig.numObjects != numObjects:
+    print("Error: dimensions of output in dataset and nn are different. Exiting...")
+    exit(1)
 
 # TensorFlow model description
 
 sess = tf.InteractiveSession()
 
-x_image = tf.placeholder(tf.float32, shape = (None, heightInp, widthInp, channelsInp))
-y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
+x_image = tf.placeholder(tf.float32, shape = (None, nnConfig.heightInp, nnConfig.widthInp, nnConfig.channelsInp))
+y_ = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
 # Beginning of network construction
 
-cnnOut = constructCnn(x_image, channelsInp, [32, 64])
+cnnOut = constructCnn(x_image, nnConfig.channelsInp, nnConfig.cnnLayersSize, nnConfig.convWindowSize)
 cnnOutSize = np.int(cnnOut.get_shape()[1])
 
-mlpLayersSize = [256]
-(yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, mlpLayersSize, sizeOutObject)
+(yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, sizeOutObject)
 yConvList = [yConvCurrent]
 
 for i in range(1, numObjects):
@@ -111,11 +122,6 @@ for imageName in testImageNames:
     objectX1 = np.int(yCurr[0][0] * currentWidthHalf + currentWidthHalf)
     objectY1 = np.int(yCurr[0][1] * currentHeightHalf + currentHeightHalf)
     cv2.circle(image, (objectX1, objectY1), 10, (255, 255, 255), 2)
-
-    if numObjects > 1:
-        objectX2 = np.int(yCurr[0][2] * currentWidthHalf + currentWidthHalf)
-        objectY2 = np.int(yCurr[0][3] * currentHeightHalf + currentHeightHalf)
-        cv2.circle(image, (objectX2, objectY2), 10, (0, 255, 255), 2)
 
     cv2.imshow("image", image)
     cv2.waitKey(0)

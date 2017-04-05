@@ -1,6 +1,5 @@
 #!/usr/bin/python
-from tensorflow.examples.tutorials.mnist import input_data
-from prepare_dataset import DataSet
+
 from subprocess import call
 from time import strftime
 import tensorflow as tf
@@ -14,6 +13,7 @@ from construct_network import weightVariable, biasVariable, \
 
 from config_file import writeConfigFile
 from nn_config import NnConfig
+from prepare_dataset import DataSet
 
 #def writeConfigFile(configDir, dictionary, configFilename = None):
 
@@ -26,107 +26,125 @@ CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
 DO_USE_PREV_MODEL = False 
 
+def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel):
+    cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
+            nnConfig.cnnLayersSize, \
+            nnConfig.convWindowSize)
+    cnnOutSize = np.int(cnnOut.get_shape()[1])
+
+    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
+    yConvList = [yConvCurrent]
+
+    for i in range(1, nnConfig.numObjects):
+        (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
+        yConvList.append(yConvCurrent)
+
+    yConv = tf.concat(yConvList, 1)
+
+    # End of network construction
+
+    averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
+    absLoss = tf.reduce_sum(averageAbsDelta)
+
+    squared_deltas = tf.square(yConv - phOutput)
+    loss = tf.reduce_sum(squared_deltas)
+
+    train_step = tf.train.AdamOptimizer(nnConfig.optimizationStep).minimize(loss)
+
+    initOp = tf.global_variables_initializer()
+    sess.run(initOp)
+
+    # Training the network
+
+    testBatchSize = 1000
+    for i in range(nnConfig.optimizationIterationsNum):
+        if i % 25 == 0:
+            batchInput, batchOutput = dataSet.getTestingBatch(testBatchSize)
+            absLossCurr = sess.run(absLoss, {phInput: batchInput, phOutput: batchOutput, keepProb: 1.0})
+            absLossCurr = absLossCurr / testBatchSize
+            print("%d: average error is %f" % (i, absLossCurr))
+
+        batchInput, batchOutput = dataSet.getTrainingBatch(nnConfig.batchSize)
+        stepCurr, lossCurr = sess.run([train_step, loss], {phInput: batchInput, phOutput: batchOutput, keepProb: 0.5})
+        print("%d: loss is %f" % (i, lossCurr))
+
+    validationSetSize = dataSet.getValidationSetSize()
+    batchInput, batchOutput = dataSet.getValidationBatch(validationSetSize)
+    absLossCurr = sess.run(absLoss, {phInput: batchInput, phOutput: batchOutput, keepProb: 1.0})
+    absLossCurr = absLossCurr / validationSetSize
+    print absLossCurr
+    nnConfig.error = absLossCurr
+
+    # Saving the network
+
+    currentDir = os.getcwd()
+    allModelsPath = currentDir + "/" + MODEL_DIR
+    stringDateTime = strftime("%y%m%d_%H%M%S")
+    modelDirPath = allModelsPath + "/" + stringDateTime
+    call(["mkdir", "-p", modelDirPath])
+    modelPath = modelDirPath + "/" + MODEL_FILENAME
+    pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
+
+    if doSaveModel:
+        saver = tf.train.Saver()
+        saver.save(sess, modelPath)
+
+    nnConfig.saveToFile(modelDirPath, stringDateTime)
+    nnConfig.markCommonRecord(allModelsPath, stringDateTime)
+    if os.path.exists(pathCurrent):
+        call(["rm", pathCurrent])
+
+    call(["ln", "-s", modelDirPath, pathCurrent])
+
+
 dataSet = DataSet()
 isSuccess = dataSet.prepareDataset(DATASET_DIR)
 if not isSuccess:
     print("Error: could not load dataset. Exiting...")
     exit(1)
 
-heightInp, widthInp, channelsInp = dataSet.getInputDimensions()
+# creating description of network configuration
+nnConfig = NnConfig()
 
-sizeOut = dataSet.getOutSizeTotal()
-sizeOutObject = dataSet.getOutSizeObject()
-numObjects = sizeOut / sizeOutObject
+nnConfig.heightInp, nnConfig.widthInp, nnConfig.channelsInp = dataSet.getInputDimensions()
+
+nnConfig.sizeOut = dataSet.getOutSizeTotal()
+nnConfig.sizeOutObject = dataSet.getOutSizeObject()
+nnConfig.numObjects = nnConfig.sizeOut / nnConfig.sizeOutObject
 
 # TensorFlow model description
 
 sess = tf.InteractiveSession()
 
-x_image = tf.placeholder(tf.float32, shape = (None, heightInp, widthInp, channelsInp))
-y_ = tf.placeholder(tf.float32, shape = (None, sizeOut))
+phInput = tf.placeholder(tf.float32, shape = (None, nnConfig.heightInp, \
+    nnConfig.widthInp, \
+    nnConfig.channelsInp))
+phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
 # Beginning of network construction
 
-cnnLayersSize = [32, 64]
-convWindowSize = 5
-cnnOut = constructCnn(x_image, channelsInp, cnnLayersSize, convWindowSize)
-cnnOutSize = np.int(cnnOut.get_shape()[1])
+nnConfig.cnnLayersSize = [32, 64]
+nnConfig.convWindowSize = 3
 
-mlpLayersSize = [256] # should be written into network configuration file
-(yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, mlpLayersSize, sizeOutObject)
-yConvList = [yConvCurrent]
+nnConfig.optimizationIterationsNum = 301
+nnConfig.optimizationStep = 1e-3
+nnConfig.batchSize = 100
 
-for i in range(1, numObjects):
-    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, mlpLayersSize, sizeOutObject, keepProb)
-    yConvList.append(yConvCurrent)
+nnConfig.mlpLayersSize = [512]
+trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True)
 
-yConv = tf.concat(yConvList, 1)
-
-# End of network construction
-
-averageAbsDelta = tf.abs(yConv - y_) / sizeOut
-absLoss = tf.reduce_sum(averageAbsDelta)
-
-squared_deltas = tf.square(yConv - y_)
-loss = tf.reduce_sum(squared_deltas)
-
-train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+###
 
 # Restoring previously saved model
-saver = tf.train.Saver()
-currentDir = os.getcwd()
-pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
-if os.path.exists(pathCurrent) and DO_USE_PREV_MODEL:
-    modelFilePath = pathCurrent + "/" + MODEL_FILENAME
-    saver.restore(sess, modelFilePath)
-    dataSet.setRandomTrainingBeginning()
-else:
-    init = tf.global_variables_initializer()
-    sess.run(init)
+#saver = tf.train.Saver()
+#pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
+#if os.path.exists(pathCurrent) and DO_USE_PREV_MODEL:
+#    modelFilePath = pathCurrent + "/" + MODEL_FILENAME
+#    saver.restore(sess, modelFilePath)
+#    dataSet.setRandomTrainingBeginning()
+#else:
+#    init = tf.global_variables_initializer()
+#    sess.run(init)
 
 ###
 
-# Training the network
-
-trainBatchSize = 100
-testBatchSize = 1000
-for i in range(21):
-    if i % 10 == 0:
-        batchInput, batchOutput = dataSet.getTestingBatch(testBatchSize)
-        absLossCurr = sess.run(absLoss, {x_image: batchInput, y_: batchOutput, keepProb: 1.0})
-        absLossCurr = absLossCurr / testBatchSize
-        print("%d: average error is %f" %(i, absLossCurr))
-
-    batchInput, batchOutput = dataSet.getTrainingBatch(trainBatchSize)
-    stepCurr, lossCurr = sess.run([train_step, loss], {x_image: batchInput, y_: batchOutput, keepProb: 0.5})
-    print("%d: loss is %f" % (i, lossCurr))
-
-###
-
-# Saving the network
-
-nnConfig = NnConfig()
-nnConfig.heightInp = heightInp
-nnConfig.widthInp = widthInp
-nnConfig.channelsInp = channelsInp
-nnConfig.sizeOut = sizeOut
-nnConfig.sizeOutObject = sizeOutObject
-nnConfig.numObjects = numObjects
-nnConfig.cnnLayersSize = cnnLayersSize
-nnConfig.convWindowSize = convWindowSize
-nnConfig.mlpLayersSize = mlpLayersSize
-
-stringDateTime = strftime("%y%m%d_%H%M%S")
-modelDirPath = currentDir + "/" + MODEL_DIR + "/" + stringDateTime
-call(["mkdir", "-p", modelDirPath])
-modelPath = modelDirPath + "/" + MODEL_FILENAME
-
-saver.save(sess, modelPath)
-nnConfig.saveToFile(modelDirPath, stringDateTime)
-
-if os.path.exists(pathCurrent):
-    call(["rm", pathCurrent])
-
-call(["ln", "-s", modelDirPath, pathCurrent])
-
-###

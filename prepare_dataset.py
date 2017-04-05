@@ -28,7 +28,12 @@ class DataSet:
         self.outputTesting_ = None
         self.outputValidation_ = None
 
-        self.propertyNames_ = ["x_rel", "y_rel"]
+        self.propertyNames_ = ["x_left_top", "y_left_top", \
+                "x_right_top", "y_right_top", \
+                "x_left_bottom", "y_left_bottom", \
+                "x_right_bottom", "y_right_bottom"]
+
+        #self.propertyNames_ = ["x_rel", "y_rel"]
 
     def prepareDataset(self, parentDir):
         dictFiles = readConfigFile(parentDir)
@@ -71,7 +76,6 @@ class DataSet:
 
         return True
 
-
     def getTrainingSetSize(self):
         return len(self.imageNamesTraining_)
 
@@ -79,6 +83,8 @@ class DataSet:
     def getTestingSetSize(self):
         return len(self.imageNamesTesting_)
 
+    def getValidationSetSize(self):
+        return len(self.imageNamesValidation_)
 
     def getValidationSetSize(self):
         return len(self.imageNamesValidation_)
@@ -123,6 +129,12 @@ class DataSet:
                 self.imageNamesTesting_, \
                 self.testingBatchBeg_, \
                 self.outputTesting_)
+
+    def getValidationBatch(self, batchSize):
+        return self._getBatch(batchSize, \
+                self.imageNamesValidation_, \
+                self.validationBatchBeg_, \
+                self.outputValidation_)
 
     def _getBatch(self, batchSize, imageNames, batchBeg, output):
         indeces = self._prepareTrainingIndeces(batchSize, imageNames, batchBeg)

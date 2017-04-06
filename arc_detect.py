@@ -32,7 +32,7 @@ TESTSET_DIR = "testset"
 MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
-DO_CROP = True
+DO_CROP = False
 
 top = 320
 left = 432
@@ -87,7 +87,7 @@ cnnOutSize = np.int(cnnOut.get_shape()[1])
 yConvList = [yConvCurrent]
 
 for i in range(1, numObjects):
-    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, mlpLayersSize, sizeOutObject, keepProb)
+    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, sizeOutObject, keepProb)
     yConvList.append(yConvCurrent)
 
 yConv = tf.concat(yConvList, 1)
@@ -121,7 +121,22 @@ for imageName in testImageNames:
 
     objectX1 = np.int(yCurr[0][0] * currentWidthHalf + currentWidthHalf)
     objectY1 = np.int(yCurr[0][1] * currentHeightHalf + currentHeightHalf)
-    cv2.circle(image, (objectX1, objectY1), 10, (255, 255, 255), 2)
+    cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 255), 2)
+
+    if sizeOut >= 4:
+        objectX1 = np.int(yCurr[0][2] * currentWidthHalf + currentWidthHalf)
+        objectY1 = np.int(yCurr[0][3] * currentHeightHalf + currentHeightHalf)
+        cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 0), 2)
+
+    if sizeOut >= 6:
+        objectX1 = np.int(yCurr[0][4] * currentWidthHalf + currentWidthHalf)
+        objectY1 = np.int(yCurr[0][5] * currentHeightHalf + currentHeightHalf)
+        cv2.circle(image, (objectX1, objectY1), 10, (0, 0, 255), 2)
+
+    if sizeOut >= 8:
+        objectX1 = np.int(yCurr[0][6] * currentWidthHalf + currentWidthHalf)
+        objectY1 = np.int(yCurr[0][7] * currentHeightHalf + currentHeightHalf)
+        cv2.circle(image, (objectX1, objectY1), 10, (0, 255, 0), 2)
 
     cv2.imshow("image", image)
     cv2.waitKey(0)

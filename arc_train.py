@@ -27,9 +27,12 @@ MODEL_FILENAME = "model.ckpt"
 DO_USE_PREV_MODEL = False 
 IMPROVE_COUNTER_LIMIT = 10
 
-def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckImprovement = None):
+def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckImprovement = None, doRestoreModel = None):
     if doCheckImprovement is None:
         doCheckImprovement = False
+
+    if doRestoreModel is None:
+        doRestoreModel = False
 
     cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
             nnConfig.cnnLayersSize, \
@@ -47,6 +50,12 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
 
     # End of network construction
 
+    # Restoring previous network
+
+    currentDir = os.getcwd()
+    pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
+
+    
     averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
     absLoss = tf.reduce_sum(averageAbsDelta)
 
@@ -55,8 +64,15 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
 
     train_step = tf.train.AdamOptimizer(nnConfig.optimizationStep).minimize(loss)
 
-    initOp = tf.global_variables_initializer()
-    sess.run(initOp)
+    if doRestoreModel:
+        print("model is restored")
+        saver = tf.train.Saver()
+        modelFilePath = pathCurrent + "/" + MODEL_FILENAME
+        saver.restore(session, modelFilePath)
+        dataSet.setRandomTrainingBeginning()
+    else:
+        initOp = tf.global_variables_initializer()
+        sess.run(initOp)
 
     # Training the network
 
@@ -98,13 +114,11 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
 
     # Saving the network
 
-    currentDir = os.getcwd()
     allModelsPath = currentDir + "/" + MODEL_DIR
     stringDateTime = strftime("%y%m%d_%H%M%S")
     modelDirPath = allModelsPath + "/" + stringDateTime
     call(["mkdir", "-p", modelDirPath])
     modelPath = modelDirPath + "/" + MODEL_FILENAME
-    pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
 
     if doSaveModel:
         saver = tf.train.Saver()
@@ -144,7 +158,7 @@ phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
 # Beginning of network construction
 
-nnConfig.cnnLayersSize = [32, 64]
+nnConfig.cnnLayersSize = [8, 16, 32, 64]
 nnConfig.convWindowSize = 3
 
 nnConfig.optimizationIterationsNum = 3001
@@ -153,20 +167,4 @@ nnConfig.optimizationStep = 1e-3
 nnConfig.batchSize = 100
 
 nnConfig.mlpLayersSize = [512]
-trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, doCheckImprovement = True)
-
-###
-
-# Restoring previously saved model
-#saver = tf.train.Saver()
-#pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
-#if os.path.exists(pathCurrent) and DO_USE_PREV_MODEL:
-#    modelFilePath = pathCurrent + "/" + MODEL_FILENAME
-#    saver.restore(sess, modelFilePath)
-#    dataSet.setRandomTrainingBeginning()
-#else:
-#    init = tf.global_variables_initializer()
-#    sess.run(init)
-
-###
-
+trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, doCheckImprovement = True, doRestoreModel = True)

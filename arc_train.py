@@ -39,28 +39,67 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
             nnConfig.convWindowSize)
     cnnOutSize = np.int(cnnOut.get_shape()[1])
 
-    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
-    yConvList = [yConvCurrent]
+    (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
+    outList = [outCurrent]
 
     for i in range(1, nnConfig.numObjects):
-        (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
-        yConvList.append(yConvCurrent)
+        (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
+        outList.append(outCurrent)
 
-    yConv = tf.concat(yConvList, 1)
+    out = tf.concat(outList, 1)
+
+    isPresentReal = tf.slice(phOutput, [0, 0], [-1, 1])
+    isPresentPredicted = tf.slice(out, [0, 0], [-1, 1])
+    isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
+    isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
+
+    xReal = tf.slice(phOutput, [0, 1], [-1, 1])
+    xPredicted = tf.slice(out, [0, 1], [-1, 1])
+    xSqDelta = isPresentReal * tf.square(xReal - xPredicted)
+    xAbsDelta = isPresentReal * tf.abs(xReal - xPredicted)
+
+    yReal = tf.slice(phOutput, [0, 2], [-1, 1])
+    yPredicted = tf.slice(out, [0, 2], [-1, 1])
+    ySqDelta = isPresentReal * tf.square(yReal - yPredicted)
+    yAbsDelta = isPresentReal * tf.abs(yReal - yPredicted)
+
+    errorSum = isPresentSqDelta + xSqDelta + ySqDelta
+    errorSumAbs = xAbsDelta + yAbsDelta
+
+    for i in range(1, nnConfig.numObjects):
+        isPresentReal = tf.slice(phOutput, [0, i * 3], [-1, 1])
+        isPresentPredicted = tf.slice(out, [0, i * 3], [-1, 1])
+        isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
+        isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
+
+        xReal = tf.slice(phOutput, [0, i * 3 + 1], [-1, 1])
+        xPredicted = tf.slice(out, [0, i * 3 + 1], [-1, 1])
+        xSqDelta = isPresentReal * tf.square(xReal - xPredicted)
+        xAbsDelta = isPresentReal * tf.abs(xReal - xPredicted)
+
+        yReal = tf.slice(phOutput, [0, i * 3 + 2], [-1, 1])
+        yPredicted = tf.slice(out, [0, i * 3 + 2], [-1, 1])
+        ySqDelta = isPresentReal * tf.square(yReal - yPredicted)
+        yAbsDelta = isPresentReal * tf.abs(yReal - yPredicted)
+
+        errorSum += isPresentSqDelta + xSqDelta + ySqDelta
+        errorSumAbs += xAbsDelta + yAbsDelta
 
     # End of network construction
+
+    # (ispresent-_ispresent)^2 + (_ispresent*(y-_y)^2+_ispresent*(x-_x)^2)
 
     # Restoring previous network
 
     currentDir = os.getcwd()
     pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
 
-    
-    averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
-    absLoss = tf.reduce_sum(averageAbsDelta)
+    #averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
+    averageErrorAbs = errorSumAbs / nnConfig.numObjects / 2
+    absLoss = tf.reduce_sum(averageErrorAbs)
 
-    squared_deltas = tf.square(yConv - phOutput)
-    loss = tf.reduce_sum(squared_deltas)
+    #squared_deltas = tf.square(yConv - phOutput)
+    loss = tf.reduce_sum(errorSum)
 
     train_step = tf.train.AdamOptimizer(nnConfig.optimizationStep).minimize(loss)
 
@@ -81,7 +120,6 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
     noImproveCounter = 0
     minAbsLoss = float("inf")
     while True:
-    #for i in range(nnConfig.optimizationIterationsNum):
         if (not doCheckImprovement) and (iterationCounter >= nnConfig.optimizationIterationsNum):
             break
 
@@ -158,13 +196,13 @@ phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
 # Beginning of network construction
 
-nnConfig.cnnLayersSize = [8, 16, 32, 64]
+nnConfig.cnnLayersSize = [8, 16, 32, 48, 64]
 nnConfig.convWindowSize = 3
 
 nnConfig.optimizationIterationsNum = 3001
 
-nnConfig.optimizationStep = 1e-3
+nnConfig.optimizationStep = 1e-5
 nnConfig.batchSize = 100
 
-nnConfig.mlpLayersSize = [512]
+nnConfig.mlpLayersSize = [128]
 trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, doCheckImprovement = True, doRestoreModel = True)

@@ -119,24 +119,34 @@ for imageName in testImageNames:
     start_time = time.time()
     yCurr = sess.run(yConv, {x_image: inputData, keepProb: 1.0})
 
-    objectX1 = np.int(yCurr[0][0] * currentWidthHalf + currentWidthHalf)
-    objectY1 = np.int(yCurr[0][1] * currentHeightHalf + currentHeightHalf)
-    cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 255), 2)
-
-    if sizeOut >= 4:
-        objectX1 = np.int(yCurr[0][2] * currentWidthHalf + currentWidthHalf)
-        objectY1 = np.int(yCurr[0][3] * currentHeightHalf + currentHeightHalf)
-        cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 0), 2)
+    print("object 1: %f \t %f \t %f" % (yCurr[0][0], yCurr[0][1], yCurr[0][2]))
+    
+    objectX1 = np.int(yCurr[0][1] * currentWidthHalf + currentWidthHalf)
+    objectY1 = np.int(yCurr[0][2] * currentHeightHalf + currentHeightHalf)
+    if yCurr[0][0] > 0.5:
+        cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 255), 2)
 
     if sizeOut >= 6:
+        print("object 2: %f \t %f \t %f" % (yCurr[0][3], yCurr[0][4], yCurr[0][5]))
         objectX1 = np.int(yCurr[0][4] * currentWidthHalf + currentWidthHalf)
         objectY1 = np.int(yCurr[0][5] * currentHeightHalf + currentHeightHalf)
-        cv2.circle(image, (objectX1, objectY1), 10, (0, 0, 255), 2)
+        if yCurr[0][3] > 0.5:
+            cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 0), 2)
 
-    if sizeOut >= 8:
-        objectX1 = np.int(yCurr[0][6] * currentWidthHalf + currentWidthHalf)
-        objectY1 = np.int(yCurr[0][7] * currentHeightHalf + currentHeightHalf)
-        cv2.circle(image, (objectX1, objectY1), 10, (0, 255, 0), 2)
+    if sizeOut >= 9:
+        print("object 3: %f \t %f \t %f" % (yCurr[0][6], yCurr[0][7], yCurr[0][8]))
+        objectX1 = np.int(yCurr[0][7] * currentWidthHalf + currentWidthHalf)
+        objectY1 = np.int(yCurr[0][8] * currentHeightHalf + currentHeightHalf)
+        if yCurr[0][6] > 0.5:
+            cv2.circle(image, (objectX1, objectY1), 10, (0, 0, 255), 2)
 
+    if sizeOut >= 12:
+        print("object 4: %f \t %f \t %f" % (yCurr[0][9], yCurr[0][10], yCurr[0][11]))
+        objectX1 = np.int(yCurr[0][10] * currentWidthHalf + currentWidthHalf)
+        objectY1 = np.int(yCurr[0][11] * currentHeightHalf + currentHeightHalf)
+        if yCurr[0][9] > 0.5:
+            cv2.circle(image, (objectX1, objectY1), 10, (0, 255, 0), 2)
+
+    print ""
     cv2.imshow("image", image)
     cv2.waitKey(0)

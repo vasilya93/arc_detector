@@ -33,7 +33,9 @@ class DataSet:
         #        "x_left_bottom", "y_left_bottom", \
         #        "x_right_bottom", "y_right_bottom"]
 
-        self.propertyNames_ = ["x_rel", "y_rel"]
+        #self.propertyNames_ = ["x_rel", "y_rel"]
+
+        self.propertyNames_ = ["is_present", "x_rel", "y_rel"]
 
     def prepareDataset(self, parentDir):
         dictFiles = readConfigFile(parentDir)

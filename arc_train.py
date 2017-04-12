@@ -157,14 +157,17 @@ phInput = tf.placeholder(tf.float32, shape = (None, nnConfig.heightInp, \
 phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
 # Beginning of network construction
-
-nnConfig.cnnLayersSize = [8, 16, 32, 64]
-nnConfig.convWindowSize = 3
-
 nnConfig.optimizationIterationsNum = 3001
 
 nnConfig.optimizationStep = 1e-3
 nnConfig.batchSize = 100
 
-nnConfig.mlpLayersSize = [512]
-trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, doCheckImprovement = True, doRestoreModel = True)
+cnnLayerSizes = [[8, 16, 32], [8, 16, 32, 64], [8, 16, 32, 48, 64], [8, 16, 32, 64, 128]]
+convWindowSizes = [[3, 3, 3], [3, 3, 3, 3], [3, 3, 3, 3, 3], [3, 3, 3, 3, 3]]
+layerSizes = [128, 256, 512, 768]
+for layerSize in layerSizes:
+    nnConfig.mlpLayersSize = [layerSize]
+    for j in range(len(convWindowSizes)):
+        nnConfig.cnnLayersSize = cnnLayerSizes[j]
+        nnConfig.convWindowSize = convWindowSizes[j]
+        trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = False, doCheckImprovement = True, doRestoreModel = False)

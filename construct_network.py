@@ -48,18 +48,18 @@ def constructMlp(mlpInput, inputSize, layerSizes, outSize, keepProb = None):
 
 
 def constructCnn(nssInput, channelsInp, layerSizes, convWindowSize = None):
-    if convWindowSize is None:
-        convWindowSize = 5
+    if convWindowSize is None or len(layerSizes) != len(convWindowSize):
+        convWindowSize = [5] * len(layerSizes)
 
     layersNum = len(layerSizes)
 
-    weightConv = weightVariable([convWindowSize, convWindowSize, channelsInp, layerSizes[0]])
+    weightConv = weightVariable([convWindowSize[0], convWindowSize[0], channelsInp, layerSizes[0]])
     biasConv = biasVariable([layerSizes[0]])
     outConv = tf.nn.relu(conv2d(nssInput, weightConv) + biasConv)
     outPool = maxPool2x2(outConv)
 
     for i in range(1, layersNum):
-        weightConv = weightVariable([convWindowSize, convWindowSize, layerSizes[i - 1], layerSizes[i]])
+        weightConv = weightVariable([convWindowSize[i], convWindowSize[i], layerSizes[i - 1], layerSizes[i]])
         biasConv = biasVariable([layerSizes[i]])
         outConv = tf.nn.relu(conv2d(outPool, weightConv) + biasConv)
         outPool = maxPool2x2(outConv)

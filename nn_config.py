@@ -69,9 +69,9 @@ class NnConfig:
 
 
     def markCommonRecord(self, allModelsPath, stringDateTime):
-        writtenString = "%s: %s\t %d\t %s\t %f\n" % (stringDateTime, \
+        writtenString = "%s: %s\t %s\t %s\t %f\n" % (stringDateTime, \
                 str(self.cnnLayersSize), \
-                self.convWindowSize, \
+                str(self.convWindowSize), \
                 str(self.mlpLayersSize), \
                 self.error)
 

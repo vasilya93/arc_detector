@@ -1,6 +1,5 @@
 #!/usr/bin/python
 from tensorflow.examples.tutorials.mnist import input_data
-from prepare_dataset import DataSet
 from image_check import getImageNames
 from subprocess import call
 from time import strftime
@@ -9,6 +8,7 @@ import tensorflow as tf
 import os.path
 import os
 import cv2
+import math
 
 import numpy as np
 
@@ -32,18 +32,12 @@ TESTSET_DIR = "testset"
 MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
-DO_CROP = False
+DO_CROP = True
 
-top = 320
-left = 432
-right = 1036
-bottom = 629
-
-dataSet = DataSet()
-isSuccess = dataSet.prepareDataset(DATASET_DIR)
-if not isSuccess:
-    print("Error: could not load dataset. Exiting...")
-    exit(1)
+top = 295
+left = 721
+right = 1148
+bottom = 513
 
 currentDir = os.getcwd()
 pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
@@ -52,24 +46,6 @@ if not os.path.exists(pathCurrent):
     exit(1)
 nnConfig = NnConfig()
 nnConfig.loadFromFile(pathCurrent)
-
-heightInp, widthInp, channelsInp = dataSet.getInputDimensions()
-
-if (nnConfig.heightInp != heightInp) or \
-        (nnConfig.widthInp != widthInp) or \
-        (nnConfig.channelsInp != channelsInp):
-    print("Error: dimensions of image in dataset and nn are different. Exiting...")
-    exit(1)
-
-sizeOut = dataSet.getOutSizeTotal()
-sizeOutObject = dataSet.getOutSizeObject()
-numObjects = sizeOut / sizeOutObject
-
-if nnConfig.sizeOut != sizeOut or \
-        nnConfig.sizeOutObject != sizeOutObject or \
-        nnConfig.numObjects != numObjects:
-    print("Error: dimensions of output in dataset and nn are different. Exiting...")
-    exit(1)
 
 # TensorFlow model description
 
@@ -83,11 +59,11 @@ y_ = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 cnnOut = constructCnn(x_image, nnConfig.channelsInp, nnConfig.cnnLayersSize, nnConfig.convWindowSize)
 cnnOutSize = np.int(cnnOut.get_shape()[1])
 
-(yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, sizeOutObject)
+(yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
 yConvList = [yConvCurrent]
 
-for i in range(1, numObjects):
-    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, sizeOutObject, keepProb)
+for i in range(1, nnConfig.numObjects):
+    (yConvCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
     yConvList.append(yConvCurrent)
 
 yConv = tf.concat(yConvList, 1)
@@ -101,7 +77,7 @@ saver.restore(sess, modelFilePath)
 
 testImageNames = getImageNames(TESTSET_DIR)
 
-inputData = np.zeros((1, heightInp, widthInp, channelsInp), np.float32)
+inputData = np.zeros((1, nnConfig.heightInp, nnConfig.widthInp, nnConfig.channelsInp), np.float32)
 for imageName in testImageNames:
     imagePath = TESTSET_DIR + "/" + imageName
     image = cv2.imread(imagePath)
@@ -112,7 +88,7 @@ for imageName in testImageNames:
     currentHeight, currentWidth, currentChannels = image.shape
     currentHeightHalf = currentHeight / 2
     currentWidthHalf = currentWidth / 2
-    imageResized = np.float32(cv2.resize(image, (widthInp, heightInp)))
+    imageResized = np.float32(cv2.resize(image, (nnConfig.widthInp, nnConfig.heightInp)))
     imageResized /= 255.0
     inputData[0, :, :, :] = imageResized[:, :, :]
 
@@ -148,5 +124,6 @@ for imageName in testImageNames:
             cv2.circle(image, (objectX1, objectY1), 10, (0, 255, 0), 2)
 
     print ""
+
     cv2.imshow("image", image)
     cv2.waitKey(0)

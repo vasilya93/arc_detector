@@ -2,6 +2,7 @@
 
 from subprocess import call
 from time import strftime
+from time import sleep
 import tensorflow as tf
 import os.path
 import os
@@ -27,7 +28,15 @@ MODEL_FILENAME = "model.ckpt"
 DO_USE_PREV_MODEL = False 
 IMPROVE_COUNTER_LIMIT = 10
 
-def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckImprovement = None, doRestoreModel = None):
+def trainNn(nnConfig, \
+        phInput, \
+        phOutput, \
+        session, \
+        dataSet, \
+        doSaveModel, \
+        doCheckImprovement = None, \
+        doRestoreModel = None):
+
     if doCheckImprovement is None:
         doCheckImprovement = False
 
@@ -36,14 +45,16 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
 
     cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
             nnConfig.cnnLayersSize, \
-            nnConfig.convWindowSize)
+            nnConfig.convWindowSize)[0]
     cnnOutSize = np.int(cnnOut.get_shape()[1])
 
-    (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
+    (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+            nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
     outList = [outCurrent]
 
     for i in range(1, nnConfig.numObjects):
-        (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
+        (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+                nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
         outList.append(outCurrent)
 
     out = tf.concat(outList, 1)
@@ -120,12 +131,14 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
     noImproveCounter = 0
     minAbsLoss = float("inf")
     while True:
-        if (not doCheckImprovement) and (iterationCounter >= nnConfig.optimizationIterationsNum):
+        if (not doCheckImprovement) and \
+                (iterationCounter >= nnConfig.optimizationIterationsNum):
             break
 
         if iterationCounter % 10 == 0:
             batchInput, batchOutput = dataSet.getTestingBatch(testBatchSize)
-            absLossCurr = sess.run(absLoss, {phInput: batchInput, phOutput: batchOutput, keepProb: 1.0})
+            absLossCurr = sess.run(absLoss, {phInput: batchInput, \
+                    phOutput: batchOutput, keepProb: 1.0})
             absLossCurr = absLossCurr / testBatchSize
             print("%d: average error is %f" % (iterationCounter, absLossCurr))
             if absLossCurr < minAbsLoss:
@@ -133,19 +146,22 @@ def trainNn(nnConfig, phInput, phOutput, session, dataSet, doSaveModel, doCheckI
                 minAbsLoss = absLossCurr
             else:
                 noImproveCounter += 1
-                print("no improvement in error for %d iterations" % noImproveCounter)
+                print("no improvement in error for %d iterations" % \
+                        noImproveCounter)
                 if noImproveCounter > IMPROVE_COUNTER_LIMIT:
                     break
 
         batchInput, batchOutput = dataSet.getTrainingBatch(nnConfig.batchSize)
-        stepCurr, lossCurr = sess.run([train_step, loss], {phInput: batchInput, phOutput: batchOutput, keepProb: 0.5})
+        stepCurr, lossCurr = sess.run([train_step, loss], \
+                {phInput: batchInput, phOutput: batchOutput, keepProb: 0.5})
         print("%d: loss is %f" % (iterationCounter, lossCurr))
 
         iterationCounter += 1
 
     validationSetSize = dataSet.getValidationSetSize()
     batchInput, batchOutput = dataSet.getValidationBatch(validationSetSize)
-    absLossCurr = sess.run(absLoss, {phInput: batchInput, phOutput: batchOutput, keepProb: 1.0})
+    absLossCurr = sess.run(absLoss, {phInput: batchInput, \
+            phOutput: batchOutput, keepProb: 1.0})
     absLossCurr = absLossCurr / validationSetSize
     print absLossCurr
     nnConfig.error = absLossCurr
@@ -179,14 +195,26 @@ if not isSuccess:
 # creating description of network configuration
 nnConfig = NnConfig()
 
-nnConfig.heightInp, nnConfig.widthInp, nnConfig.channelsInp = dataSet.getInputDimensions()
+nnConfig.objectNames = dataSet.getObjectNames()
+
+nnConfig.heightInp, \
+nnConfig.widthInp, \
+nnConfig.channelsInp = dataSet.getInputDimensions()
 
 nnConfig.sizeOut = dataSet.getOutSizeTotal()
 nnConfig.sizeOutObject = dataSet.getOutSizeObject()
 nnConfig.numObjects = nnConfig.sizeOut / nnConfig.sizeOutObject
 
-# TensorFlow model description
+# Beginning of network construction
+nnConfig.optimizationIterationsNum = 3001
+nnConfig.optimizationStep = 1e-4
+nnConfig.batchSize = 1000
+nnConfig.mlpLayersSize = [512]
+nnConfig.cnnLayersSize = [8, 16, 32, 48, 64, 80]
+nnConfig.convWindowSize = [3, 3, 3, 3, 3, 3]
 
+
+tf.reset_default_graph()
 sess = tf.InteractiveSession()
 
 phInput = tf.placeholder(tf.float32, shape = (None, nnConfig.heightInp, \
@@ -194,18 +222,37 @@ phInput = tf.placeholder(tf.float32, shape = (None, nnConfig.heightInp, \
     nnConfig.channelsInp))
 phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
-# Beginning of network construction
-nnConfig.optimizationIterationsNum = 3001
-
-nnConfig.optimizationStep = 1e-5
-nnConfig.batchSize = 100
-
-cnnLayerSizes = [[8, 16, 32], [8, 16, 32, 64], [8, 16, 32, 48, 64], [8, 16, 32, 64, 128]]
-convWindowSizes = [[3, 3, 3], [3, 3, 3, 3], [3, 3, 3, 3, 3], [3, 3, 3, 3, 3]]
+"""
+cnnLayerSizes = [[8, 16, 32], [8, 16, 32, 64], [8, 16, 32, 48, 64], \
+        [8, 16, 32, 64, 128], [8, 16, 32, 48, 64, 80]]
+convWindowSizes = [[3, 3, 3], [3, 3, 3, 3], [3, 3, 3, 3, 3], [3, 3, 3, 3, 3], \
+        [3, 3, 3, 3, 3, 3]]
 layerSizes = [128, 256, 512, 768]
 for layerSize in layerSizes:
     nnConfig.mlpLayersSize = [layerSize]
     for j in range(len(convWindowSizes)):
         nnConfig.cnnLayersSize = cnnLayerSizes[j]
         nnConfig.convWindowSize = convWindowSizes[j]
-        trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = False, doCheckImprovement = True, doRestoreModel = False)
+        trainNn(nnConfig, phInput, phOutput, sess, dataSet, \
+        doSaveModel = False, doCheckImprovement = True, doRestoreModel = False)
+"""
+
+trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, \
+            doCheckImprovement = True, doRestoreModel = True)
+
+"""
+batchSizes = [100, 300, 600, 1000]
+for batchSize in batchSizes:
+    tf.reset_default_graph()
+    sess = tf.InteractiveSession()
+
+    phInput = tf.placeholder(tf.float32, shape = (None, nnConfig.heightInp, \
+        nnConfig.widthInp, \
+        nnConfig.channelsInp))
+    phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
+
+    nnConfig.batchSize = batchSize
+    trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, \
+            doCheckImprovement = True, doRestoreModel = True)
+    sleep(30)
+"""

@@ -68,4 +68,4 @@ def constructCnn(nssInput, channelsInp, layerSizes, convWindowSize = None):
     convOutputSize = np.int(outHeight * outWidth * outChannels)
     outFlat = tf.reshape(outPool, [-1, convOutputSize])
 
-    return outFlat
+    return (outFlat, outPool)

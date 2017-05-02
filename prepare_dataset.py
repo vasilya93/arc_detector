@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import cv2
+import os
 import numpy as np
 from random import randint
 
@@ -36,6 +37,7 @@ class DataSet:
         #self.propertyNames_ = ["x_rel", "y_rel"]
 
         self.propertyNames_ = ["is_present", "x_rel", "y_rel"]
+        self.objectNames_ = []
 
     def prepareDataset(self, parentDir):
         dictFiles = readConfigFile(parentDir)
@@ -43,6 +45,9 @@ class DataSet:
         imageNames = []
         for imageName in dictFiles:
             imageNames.append(parentDir + "/" + imageName)
+            if len(self.objectNames_) <= 0:
+                for objName in dictFiles[imageName]:
+                    self.objectNames_.append(os.path.splitext(objName)[0])
             newData = []
             for objName in dictFiles[imageName]:
                 objectData = literal_eval(dictFiles[imageName][objName])
@@ -78,9 +83,11 @@ class DataSet:
 
         return True
 
+    def getObjectNames(self):
+        return self.objectNames_
+
     def getTrainingSetSize(self):
         return len(self.imageNamesTraining_)
-
 
     def getTestingSetSize(self):
         return len(self.imageNamesTesting_)

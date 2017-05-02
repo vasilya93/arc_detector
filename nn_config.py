@@ -19,6 +19,7 @@ class NnConfig:
         self.optimizationStep = 0.0
         self.batchSize = 0
         self.error = 0
+        self.objectNames = []
 
     def saveToFile(self, parentDir, stringDateTime):
         dictConfig = {}
@@ -36,6 +37,7 @@ class NnConfig:
         dictConfig[stringDateTime]["optimization_step"] = self.optimizationStep
         dictConfig[stringDateTime]["batch_size"] = self.batchSize
         dictConfig[stringDateTime]["error"] = self.error
+        dictConfig[stringDateTime]["object_names"] = self.objectNames
         writeConfigFile(parentDir, dictConfig)
 
     def loadFromFile(self, parentDir):
@@ -54,6 +56,7 @@ class NnConfig:
             self.optimizationStep = eval(dictConfig[key]["optimization_step"])
             self.batchSize = eval(dictConfig[key]["batch_size"])
             self.error = eval(dictConfig[key]["error"])
+            self.objectNames = eval(dictConfig[key]["object_names"])
             break
 
     def printData(self):

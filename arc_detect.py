@@ -1,5 +1,4 @@
 #!/usr/bin/python
-from tensorflow.examples.tutorials.mnist import input_data
 from image_check import getImageNames
 from subprocess import call
 from time import strftime
@@ -107,7 +106,7 @@ for imageName in testImageNames:
             imageText = "%s: %f" % (nnConfig.objectNames[i], probability)
             cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, (0, 0, 0))
             yTextCurrent += 30
-            #cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 255), 2)
+            cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 255), 2)
 
     print "\r\n"
 

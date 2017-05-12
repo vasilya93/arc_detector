@@ -68,4 +68,8 @@ def constructCnn(nssInput, channelsInp, layerSizes, convWindowSize = None):
     convOutputSize = np.int(outHeight * outWidth * outChannels)
     outFlat = tf.reshape(outPool, [-1, convOutputSize])
 
+    print("Info: constructCnn produced network with sizes of the layers: %s" % str(layerSizes))
+    print("      sizes of convolution window are: %s" % str(convWindowSize))
+    print("      size of the output is %dx%d" % (outHeight, outWidth))
+
     return (outFlat, outPool)

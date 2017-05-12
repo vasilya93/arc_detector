@@ -73,3 +73,59 @@ def constructCnn(nssInput, channelsInp, layerSizes, convWindowSize = None):
     print("      size of the output is %dx%d" % (outHeight, outWidth))
 
     return (outFlat, outPool)
+
+def constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig):
+    cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
+            nnConfig.cnnLayersSize, \
+            nnConfig.convWindowSize)[0]
+    cnnOutSize = np.int(cnnOut.get_shape()[1])
+
+    (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+            nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
+    outList = [outCurrent]
+
+    for i in range(1, nnConfig.numObjects):
+        (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+                nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
+        outList.append(outCurrent)
+
+    out = tf.concat(outList, 1)
+
+    isPresentReal = tf.slice(phOutput, [0, 0], [-1, 1])
+    isPresentPredicted = tf.slice(out, [0, 0], [-1, 1])
+    isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
+    isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
+
+    xReal = tf.slice(phOutput, [0, 1], [-1, 1])
+    xPredicted = tf.slice(out, [0, 1], [-1, 1])
+    xSqDelta = isPresentReal * tf.square(xReal - xPredicted)
+    xAbsDelta = isPresentReal * tf.abs(xReal - xPredicted)
+
+    yReal = tf.slice(phOutput, [0, 2], [-1, 1])
+    yPredicted = tf.slice(out, [0, 2], [-1, 1])
+    ySqDelta = isPresentReal * tf.square(yReal - yPredicted)
+    yAbsDelta = isPresentReal * tf.abs(yReal - yPredicted)
+
+    errorSum = isPresentSqDelta + xSqDelta + ySqDelta
+    errorSumAbs = xAbsDelta + yAbsDelta
+
+    for i in range(1, nnConfig.numObjects):
+        isPresentReal = tf.slice(phOutput, [0, i * 3], [-1, 1])
+        isPresentPredicted = tf.slice(out, [0, i * 3], [-1, 1])
+        isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
+        isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
+
+        xReal = tf.slice(phOutput, [0, i * 3 + 1], [-1, 1])
+        xPredicted = tf.slice(out, [0, i * 3 + 1], [-1, 1])
+        xSqDelta = isPresentReal * tf.square(xReal - xPredicted)
+        xAbsDelta = isPresentReal * tf.abs(xReal - xPredicted)
+
+        yReal = tf.slice(phOutput, [0, i * 3 + 2], [-1, 1])
+        yPredicted = tf.slice(out, [0, i * 3 + 2], [-1, 1])
+        ySqDelta = isPresentReal * tf.square(yReal - yPredicted)
+        yAbsDelta = isPresentReal * tf.abs(yReal - yPredicted)
+
+        errorSum += isPresentSqDelta + xSqDelta + ySqDelta
+        errorSumAbs += xAbsDelta + yAbsDelta
+
+    return (errorSum, errorSumAbs, keepProb)

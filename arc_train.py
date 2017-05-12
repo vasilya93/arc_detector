@@ -11,6 +11,7 @@ import numpy as np
 
 from construct_network import weightVariable, biasVariable, \
         conv2d, maxPool2x2, constructMlp, constructCnn
+from construct_network import constructCnnMlpPresenceIndication
 
 from config_file import writeConfigFile
 from nn_config import NnConfig
@@ -56,63 +57,10 @@ def trainNn(nnConfig, \
     if doRestoreModel is None:
         doRestoreModel = False
 
-    cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
-            nnConfig.cnnLayersSize, \
-            nnConfig.convWindowSize)[0]
-    cnnOutSize = np.int(cnnOut.get_shape()[1])
-
-    (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
-            nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
-    outList = [outCurrent]
-
-    for i in range(1, nnConfig.numObjects):
-        (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
-                nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
-        outList.append(outCurrent)
-
-    out = tf.concat(outList, 1)
-
-    isPresentReal = tf.slice(phOutput, [0, 0], [-1, 1])
-    isPresentPredicted = tf.slice(out, [0, 0], [-1, 1])
-    isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
-    isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
-
-    xReal = tf.slice(phOutput, [0, 1], [-1, 1])
-    xPredicted = tf.slice(out, [0, 1], [-1, 1])
-    xSqDelta = isPresentReal * tf.square(xReal - xPredicted)
-    xAbsDelta = isPresentReal * tf.abs(xReal - xPredicted)
-
-    yReal = tf.slice(phOutput, [0, 2], [-1, 1])
-    yPredicted = tf.slice(out, [0, 2], [-1, 1])
-    ySqDelta = isPresentReal * tf.square(yReal - yPredicted)
-    yAbsDelta = isPresentReal * tf.abs(yReal - yPredicted)
-
-    errorSum = isPresentSqDelta + xSqDelta + ySqDelta
-    errorSumAbs = xAbsDelta + yAbsDelta
-
-    for i in range(1, nnConfig.numObjects):
-        isPresentReal = tf.slice(phOutput, [0, i * 3], [-1, 1])
-        isPresentPredicted = tf.slice(out, [0, i * 3], [-1, 1])
-        isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
-        isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
-
-        xReal = tf.slice(phOutput, [0, i * 3 + 1], [-1, 1])
-        xPredicted = tf.slice(out, [0, i * 3 + 1], [-1, 1])
-        xSqDelta = isPresentReal * tf.square(xReal - xPredicted)
-        xAbsDelta = isPresentReal * tf.abs(xReal - xPredicted)
-
-        yReal = tf.slice(phOutput, [0, i * 3 + 2], [-1, 1])
-        yPredicted = tf.slice(out, [0, i * 3 + 2], [-1, 1])
-        ySqDelta = isPresentReal * tf.square(yReal - yPredicted)
-        yAbsDelta = isPresentReal * tf.abs(yReal - yPredicted)
-
-        errorSum += isPresentSqDelta + xSqDelta + ySqDelta
-        errorSumAbs += xAbsDelta + yAbsDelta
-
-    # End of network construction
+    # Constructing network with three outputs for each object: x, y, is_present
+    errorSum, errorSumAbs, keepProb = constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig)
 
     # Restoring previous network
-
     currentDir = os.getcwd()
     pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
 

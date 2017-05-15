@@ -2,6 +2,8 @@
 import tensorflow as tf
 import numpy as np
 
+from copy import deepcopy
+
 def weightVariable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1)
     return tf.Variable(initial)
@@ -129,3 +131,22 @@ def constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig):
         errorSumAbs += xAbsDelta + yAbsDelta
 
     return (errorSum, errorSumAbs, keepProb)
+
+def constructCnnMarkup(phInput, nnConfig):
+    cnnLayersSize = deepcopy(nnConfig.cnnLayersSize)
+    cnnLayersSize.append(nnConfig.numObjects)
+
+    convWindowSize = deepcopy(nnConfig.convWindowSize)
+    convWindowSize.append(convWindowSize[-1])
+
+    cnnOutFlat, cnnOutPool = constructCnn(phInput, nnConfig.channelsInp, \
+            cnnLayersSize, \
+            convWindowSize)
+    cnnOutSize = cnnOutPool.get_shape()
+ 
+    phOutput = tf.placeholder(tf.float32, [None, 4, 7, 1])
+    
+    sqDelta = tf.square(cnnOutPool - phOutput)
+    loss = tf.reduce_sum(sqDelta)
+
+    return loss, phOutput

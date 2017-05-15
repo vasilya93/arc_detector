@@ -12,6 +12,7 @@ import numpy as np
 from construct_network import weightVariable, biasVariable, \
         conv2d, maxPool2x2, constructMlp, constructCnn
 from construct_network import constructCnnMlpPresenceIndication
+from construct_network import constructCnnMarkup
 
 from config_file import writeConfigFile
 from nn_config import NnConfig
@@ -22,7 +23,7 @@ import threading
 TRAINING_MODE_TRY_ARCHITECTURES = 1
 TRAINING_MODE_DEEP = 2
 
-DATASET_DIR = "dataset/images"
+DATASET_DIR = "dataset"
 MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
@@ -44,7 +45,6 @@ def threadKeyReading():
 
 def trainNn(nnConfig, \
         phInput, \
-        phOutput, \
         session, \
         dataSet, \
         doSaveModel, \
@@ -57,12 +57,36 @@ def trainNn(nnConfig, \
     if doRestoreModel is None:
         doRestoreModel = False
 
+    loss, phOutput = constructCnnMarkup(phInput, nnConfig)
+    height = phOutput.get_shape()[1]
+    width = phOutput.get_shape()[2]
+    print "height %d; width %d" % (height, width)
+    train_step = tf.train.AdamOptimizer(nnConfig.optimizationStep).minimize(loss)
+
+    iterationCounter = 0
+    noImproveCounter = 0
+    minAbsLoss = float("inf")
+    while True:
+        if iterationCounter >= 100:
+            break
+
+        batchInput, batchOutput = dataSet.getTrainingBatchMarkup(nnConfig.batchSize, height, width)
+        print "size batch input is " + str(batchInput.shape)
+        print "size batch output is " + str(batchOutput.shape)
+        stepCurr, lossCurr = session.run([train_step, loss], \
+                {phInput: batchInput, phOutput: batchOutput})
+        print("%d: loss is %f" % (iterationCounter, lossCurr))
+
+        iterationCounter += 1
+
+    return
+    
     # Constructing network with three outputs for each object: x, y, is_present
-    errorSum, errorSumAbs, keepProb = constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig)
+    #errorSum, errorSumAbs, keepProb = constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig)
 
     # Restoring previous network
-    currentDir = os.getcwd()
-    pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
+    #currentDir = os.getcwd()
+    #pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
 
     #averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
     averageErrorAbs = errorSumAbs / nnConfig.numObjects / 2
@@ -172,15 +196,15 @@ def tryArchitectures(nnConfig, dataSet):
                 nnConfig.channelsInp))
             phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
-            trainNn(nnConfig, phInput, phOutput, sess, dataSet, \
+            trainNn(nnConfig, phInput, sess, dataSet, \
             doSaveModel = False, doCheckImprovement = True, doRestoreModel = False)
 
 def trainDeep(nnConfig, dataSet):
     tf.reset_default_graph()
     sess = tf.InteractiveSession()
 
-    batchSizes = [100, 300, 600, 1000]
-    optimizationSteps = [[1e-3], [1e-3], [1e-3], [1e-3]]
+    batchSizes = [100]
+    optimizationSteps = [[1e-3]]
     for i in range(len(batchSizes)):
         tf.reset_default_graph()
         sess = tf.InteractiveSession()
@@ -190,16 +214,16 @@ def trainDeep(nnConfig, dataSet):
                 nnConfig.heightInp, \
                 nnConfig.widthInp, \
                 nnConfig.channelsInp))
-        phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
+        #phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
         nnConfig.batchSize = batchSizes[i]
         if i == 0:
-            trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, \
+            trainNn(nnConfig, phInput, sess, dataSet, doSaveModel = True, \
                     doCheckImprovement = True, doRestoreModel = False)
         else:
             for optimizationStep in optimizationSteps[i]:
                 nnConfig.optimizationStep = optimizationStep
-                trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, \
+                trainNn(nnConfig, phInput, sess, dataSet, doSaveModel = True, \
                         doCheckImprovement = True, doRestoreModel = True)
                 if doesUserAskQuit == True:
                     break
@@ -217,6 +241,11 @@ isSuccess = dataSet.prepareDataset(DATASET_DIR)
 if not isSuccess:
     print("Error: could not load dataset. Exiting...")
     exit(1)
+
+#print("Info: the dataset was successfuly loaded")
+#batchInput, batchOutput = dataSet.getTrainingBatchMarkup(100)
+#print("Info: 111")
+#exit(0)
 
 # creating description of network configuration
 nnConfig = NnConfig()

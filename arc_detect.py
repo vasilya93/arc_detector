@@ -46,7 +46,6 @@ nnConfig.loadFromFile(pathCurrent)
 sess = tf.InteractiveSession()
 
 x_image = tf.placeholder(tf.float32, shape = (None, nnConfig.heightInp, nnConfig.widthInp, nnConfig.channelsInp))
-y_ = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
 # Beginning of network construction
 

@@ -21,6 +21,7 @@ import threading
 
 TRAINING_MODE_TRY_ARCHITECTURES = 1
 TRAINING_MODE_DEEP = 2
+TRAINING_MODE_SINGLE = 3
 
 DATASET_DIR = "dataset/images"
 MODEL_DIR = "model"
@@ -29,7 +30,7 @@ MODEL_FILENAME = "model.ckpt"
 DO_USE_PREV_MODEL = False 
 IMPROVE_COUNTER_LIMIT = 10
 
-trainingMode = TRAINING_MODE_DEEP
+trainingMode = TRAINING_MODE_SINGLE
 
 doesUserAskQuit = False
 
@@ -212,6 +213,19 @@ def trainDeep(nnConfig, dataSet):
 
         sleep(10)
 
+def trainSingle(nnConfig, dataSet):
+    sess = tf.InteractiveSession()
+
+    phInput = tf.placeholder(tf.float32, \
+            shape = (None, \
+            nnConfig.heightInp, \
+            nnConfig.widthInp, \
+            nnConfig.channelsInp))
+    phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
+
+    trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, \
+            doCheckImprovement = True, doRestoreModel = True)
+
 dataSet = DataSet()
 isSuccess = dataSet.prepareDataset(DATASET_DIR)
 if not isSuccess:
@@ -234,7 +248,7 @@ nnConfig.numObjects = nnConfig.sizeOut / nnConfig.sizeOutObject
 # Beginning of network construction
 nnConfig.optimizationIterationsNum = 3001
 nnConfig.optimizationStep = 1e-3
-nnConfig.batchSize = 100
+nnConfig.batchSize = 600
 nnConfig.mlpLayersSize = [256]
 nnConfig.cnnLayersSize = [8, 16, 32, 48, 64]
 nnConfig.convWindowSize = [3, 3, 3, 3, 3]
@@ -245,5 +259,7 @@ if trainingMode == TRAINING_MODE_TRY_ARCHITECTURES:
     tryArchitectures(nnConfig, dataSet)
 elif trainingMode == TRAINING_MODE_DEEP:
     trainDeep(nnConfig, dataSet)
+elif trainingMode == TRAINING_MODE_SINGLE:
+    trainSingle(nnConfig, dataSet)
 
 print("Info: exiting the program")

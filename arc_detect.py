@@ -28,10 +28,10 @@ CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
 DO_CROP = True
 
-top = 290
-left = 683
-right = 1143
-bottom = 527
+top = 467
+left = 359
+right = 938
+bottom = 863
 
 currentDir = os.getcwd()
 pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME

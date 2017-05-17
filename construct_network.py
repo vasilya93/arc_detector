@@ -129,3 +129,5 @@ def constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig):
         errorSumAbs += xAbsDelta + yAbsDelta
 
     return (errorSum, errorSumAbs, keepProb)
+
+

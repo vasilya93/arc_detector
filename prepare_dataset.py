@@ -128,25 +128,31 @@ class DataSet:
         self.trainingBatchBeg_ = randint(0, setSize - 1)
 
     def getTrainingBatch(self, batchSize):
-        return self._getBatch(batchSize, \
+        batchIn, batchOut, newBatchBeg = self._getBatch(batchSize, \
                 self.imageNamesTraining_, \
                 self.trainingBatchBeg_, \
                 self.outputTraining_)
+        self.trainingBatchBeg_ = newBatchBeg
+        return (batchIn, batchOut)
 
     def getTestingBatch(self, batchSize):
-        return self._getBatch(batchSize, \
+        batchIn, batchOut, newBatchBeg = self._getBatch(batchSize, \
                 self.imageNamesTesting_, \
                 self.testingBatchBeg_, \
                 self.outputTesting_)
+        self.testingBatchBeg_ = newBatchBeg
+        return (batchIn, batchOut)
 
     def getValidationBatch(self, batchSize):
-        return self._getBatch(batchSize, \
+        batchIn, batchOut, newBatchBeg = self._getBatch(batchSize, \
                 self.imageNamesValidation_, \
                 self.validationBatchBeg_, \
                 self.outputValidation_)
+        self.validationBatchBeg_ = newBatchBeg
+        return (batchIn, batchOut)
 
     def _getBatch(self, batchSize, imageNames, batchBeg, output):
-        indeces = self._prepareTrainingIndeces(batchSize, imageNames, batchBeg)
+        indeces, newBatchBeg = self._prepareTrainingIndeces(batchSize, imageNames, batchBeg)
         if indeces == None:
             return (None, None)
 
@@ -155,11 +161,13 @@ class DataSet:
 
         batchOutput = [output[i] for i in indeces]
 
-        return (batchInput, batchOutput)
+        return (batchInput, batchOutput, newBatchBeg)
 
     def _prepareTrainingIndeces(self, batchSize, imageNames, batchBeg):
         setSize = len(imageNames)
         if batchSize > setSize:
+            print("Error: requested batch size (%d) is more than there are elements in the set (%d)" % \
+                    (batchSize, setSize))
             return None
 
         leftToEnd = setSize - batchBeg
@@ -173,7 +181,7 @@ class DataSet:
             indeces.extend(range(0, leftToCopy))
             batchBeg = leftToCopy
 
-	return indeces
+	return indeces, batchBeg
 
     def _prepareInputImages(self, batchImageNames):
         inputData = None

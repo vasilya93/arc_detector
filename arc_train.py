@@ -248,7 +248,7 @@ nnConfig.numObjects = nnConfig.sizeOut / nnConfig.sizeOutObject
 # Beginning of network construction
 nnConfig.optimizationIterationsNum = 3001
 nnConfig.optimizationStep = 1e-3
-nnConfig.batchSize = 600
+nnConfig.batchSize = 1000
 nnConfig.mlpLayersSize = [256]
 nnConfig.cnnLayersSize = [8, 16, 32, 48, 64]
 nnConfig.convWindowSize = [3, 3, 3, 3, 3]

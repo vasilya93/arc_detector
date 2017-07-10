@@ -74,6 +74,28 @@ def constructCnn(nssInput, channelsInp, layerSizes, convWindowSize = None):
 
     return (outFlat, outPool)
 
+def constructCnnMlp(phInput, phOutput, nnConfig):
+    cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
+            nnConfig.cnnLayersSize, \
+            nnConfig.convWindowSize)[0]
+    cnnOutSize = np.int(cnnOut.get_shape()[1])
+
+    (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+            nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
+    outList = [outCurrent]
+
+    for i in range(1, nnConfig.numObjects):
+        (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+                nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
+        outList.append(outCurrent)
+
+    out = tf.concat(outList, 1)
+
+    errorSum = tf.square(phOutput - out)
+    errorSumAbs = tf.abs(phOutput - out)
+
+    return (errorSum, errorSumAbs, keepProb)
+
 def constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig):
     cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
             nnConfig.cnnLayersSize, \

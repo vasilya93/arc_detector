@@ -7,9 +7,16 @@ class NnConfig:
         self.heightInp = 0
         self.widthInp = 0
         self.channelsInp = 0
+        self.numObjects = 0
+
+        # When output is images
+        self.heightOut = 0
+        self.widthOut = 0
+
+        # When output is information about objects
         self.sizeOut = 0
         self.sizeOutObject = 0
-        self.numObjects = 0
+
         self.cnnLayersSize = [0]
         self.convWindowSize = [0]
         self.mlpLayersSize = [0]
@@ -26,6 +33,10 @@ class NnConfig:
         dictConfig[stringDateTime] = {}
         dictConfig[stringDateTime]["height_inp"] = self.heightInp
         dictConfig[stringDateTime]["width_inp"] = self.widthInp
+
+        dictConfig[stringDateTime]["height_out"] = self.heightOut
+        dictConfig[stringDateTime]["width_out"] = self.widthOut
+ 
         dictConfig[stringDateTime]["channels_inp"] = self.channelsInp
         dictConfig[stringDateTime]["size_out"] = self.sizeOut
         dictConfig[stringDateTime]["size_out_object"] = self.sizeOutObject
@@ -45,6 +56,10 @@ class NnConfig:
         for key in dictConfig:
             self.heightInp = eval(dictConfig[key]["height_inp"])
             self.widthInp = eval(dictConfig[key]["width_inp"])
+
+            self.heightOut = eval(dictConfig[key]["height_out"])
+            self.widthOut = eval(dictConfig[key]["width_out"])
+
             self.channelsInp = eval(dictConfig[key]["channels_inp"])
             self.sizeOut = eval(dictConfig[key]["size_out"])
             self.sizeOutObject = eval(dictConfig[key]["size_out_object"])

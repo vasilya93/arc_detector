@@ -3,9 +3,13 @@ import cv2
 import os
 import numpy as np
 from random import randint
+from copy import deepcopy
 
 from config_file import readConfigFile
 from ast import literal_eval
+
+IMAGES_DIR = "images"
+MARKUP_DIR = "markup"
 
 # there must be a functions which accepts just filenames, and on the basis of
 # the filenames it prepares all the data and images
@@ -25,9 +29,16 @@ class DataSet:
         self.imageNamesTesting_ = []
         self.imageNamesValidation_ = []
 
+        self.markupNamesTraining_ = []
+        self.markupNamesTesting_ = []
+        self.markupNamesValidation_ = []
+
         self.outputTraining_ = None
         self.outputTesting_ = None
         self.outputValidation_ = None
+
+        self.propertyNames_ = ["is_present", "x_rel", "y_rel"]
+        self.objectNames_ = []
 
         #self.propertyNames_ = ["x_left_top", "y_left_top", \
         #        "x_right_top", "y_right_top", \
@@ -36,15 +47,17 @@ class DataSet:
 
         #self.propertyNames_ = ["x_rel", "y_rel"]
 
-        self.propertyNames_ = ["is_present", "x_rel", "y_rel"]
-        self.objectNames_ = []
-
     def prepareDataset(self, parentDir):
-        dictFiles = readConfigFile(parentDir)
+        imagesDir = parentDir + "/" + IMAGES_DIR
+        markupDir = parentDir + "/" + MARKUP_DIR
+
+        dictFiles = readConfigFile(imagesDir)
         outputData = None
         imageNames = []
+        markupNames = []
         for imageName in dictFiles:
-            imageNames.append(parentDir + "/" + imageName)
+            imageNames.append(imagesDir + "/" + imageName)
+            markupNames.append(markupDir + "/" + imageName)
             if len(self.objectNames_) <= 0:
                 for objName in dictFiles[imageName]:
                     self.objectNames_.append(os.path.splitext(objName)[0])
@@ -67,14 +80,18 @@ class DataSet:
         trainingSize = np.int(self.trainingProportion_ * dataSize)
         testingSize = np.int(self.testingProportion_ * dataSize)
         validationSize = np.int(dataSize - trainingSize - testingSize)
+
         self.imageNamesTraining_ = imageNames[0:trainingSize]
+        self.markupNamesTraining_ = markupNames[0:trainingSize]
         self.outputTraining_ = outputData[0:trainingSize, :]
 
         testingSetEnd = trainingSize + testingSize
         self.imageNamesTesting_ = imageNames[trainingSize:testingSetEnd]
+        self.markupNamesTesting_ = markupNames[trainingSize:testingSetEnd]
         self.outputTesting_ = outputData[trainingSize:testingSetEnd, :]
 
         self.imageNamesValidation_ = imageNames[testingSetEnd:dataSize]
+        self.markupNamesValidation_ = markupNames[testingSetEnd:dataSize]
         self.outputValidation_ = outputData[testingSetEnd:dataSize, :]
 
         self.trainingBatchBeg_ = 0
@@ -127,6 +144,36 @@ class DataSet:
         setSize = len(self.imageNamesTraining_)
         self.trainingBatchBeg_ = randint(0, setSize - 1)
 
+    def getTrainingBatchMarkup(self, batchSize, heightOut, widthOut):
+        batchIn, batchOut, newBatchBeg = self._getBatchMarkup(batchSize, \
+                self.imageNamesTraining_, \
+                self.trainingBatchBeg_, \
+                self.markupNamesTraining_, \
+                heightOut, \
+                widthOut)
+        self.trainingBatchBeg_ = newBatchBeg
+        return (batchIn, batchOut)
+
+    def getTestingBatchMarkup(self, batchSize, heightOut, widthOut):
+        batchIn, batchOut, newBatchBeg = self._getBatchMarkup(batchSize, \
+                self.imageNamesTesting_, \
+                self.testingBatchBeg_, \
+                self.markupNamesTesting_, \
+                heightOut, \
+                widthOut)
+        self.testingBatchBeg_ = newBatchBeg
+        return (batchIn, batchOut)
+
+    def getValidationBatchMarkup(self, batchSize, heightOut, widthOut):
+        batchIn, batchOut, newBatchBeg = self._getBatchMarkup(batchSize, \
+                self.imageNamesValidation_, \
+                self.validationBatchBeg_, \
+                self.markupNamesValidation_, \
+                heightOut, \
+                widthOut)
+        self.validationBatchBeg_ = newBatchBeg
+        return (batchIn, batchOut)
+
     def getTrainingBatch(self, batchSize):
         batchIn, batchOut, newBatchBeg = self._getBatch(batchSize, \
                 self.imageNamesTraining_, \
@@ -160,6 +207,19 @@ class DataSet:
         batchInput = self._prepareInputMatrices(batchImageNames)
 
         batchOutput = [output[i] for i in indeces]
+
+        return (batchInput, batchOutput, newBatchBeg)
+
+    def _getBatchMarkup(self, batchSize, imageNames, batchBeg, markupNames, heightOut, widthOut):
+        indeces, newBatchBeg = self._prepareTrainingIndeces(batchSize, imageNames, batchBeg)
+        if indeces == None:
+            return (None, None)
+
+        batchImageNames = [imageNames[i] for i in indeces]
+        batchMarkupNames = [markupNames[i] for i in indeces]
+
+        batchInput = self._prepareInputMatrices(batchImageNames)
+        batchOutput = self._prepareOutputMatrices(batchMarkupNames, heightOut, widthOut)
 
         return (batchInput, batchOutput, newBatchBeg)
 
@@ -212,3 +272,30 @@ class DataSet:
                 continue
     	    inputData[i, :, :, :] = imageCurrent[:, :, :]
         return inputData
+
+    def _prepareOutputMatrices(self, batchMarkupNames, height, width):
+        objectsNum = len(self.objectNames_)
+        dataSize = len(batchMarkupNames)
+        outputData = np.zeros((dataSize, height, width, objectsNum), np.float32)
+        for i in range(len(batchMarkupNames)):
+            markupName = batchMarkupNames[i]
+            imageMarkup = cv2.imread(markupName, 0)
+            heightOrig, widthOrig = imageMarkup.shape
+            imageCurrent = np.zeros((height, width, objectsNum), dtype = np.float32)
+            for j in range(1, objectsNum + 1):
+                markupObject = np.zeros((heightOrig, widthOrig), np.uint8)
+                markupObject[imageMarkup == j] = 255
+                markupObject = cv2.resize(markupObject, (width, height), interpolation = cv2.INTER_NEAREST)
+                #markupObject = cv2.resize(markupObject, (widthOrig, heightOrig), interpolation = cv2.INTER_NEAREST)
+                #cv2.imshow("window", markupObject)
+                #cv2.moveWindow("window", 100, 100)
+                #cv2.waitKey(0)
+                #cv2.destroyAllWindows()
+
+                currentObjectLayer = imageCurrent[:, :, j - 1]
+                currentObjectLayer[markupObject == 255] = 1.0
+ 
+            outputData[i, :, :, :] = imageCurrent[:, :, :]
+
+        return outputData
+

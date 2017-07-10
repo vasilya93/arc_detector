@@ -12,6 +12,7 @@ import numpy as np
 from construct_network import weightVariable, biasVariable, \
         conv2d, maxPool2x2, constructMlp, constructCnn
 from construct_network import constructCnnMlpPresenceIndication
+from construct_network import constructCnnMlp
 
 from config_file import writeConfigFile
 from nn_config import NnConfig
@@ -23,14 +24,19 @@ TRAINING_MODE_TRY_ARCHITECTURES = 1
 TRAINING_MODE_DEEP = 2
 TRAINING_MODE_SINGLE = 3
 
-DATASET_DIR = "dataset/images"
+MODEL_TYPE_CNNMLP = 1
+MODEL_TYPE_CNNMLP_PRESENCE = 2
+
+DATASET_DIR = "dataset"
 MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
-DO_USE_PREV_MODEL = False 
 IMPROVE_COUNTER_LIMIT = 10
 
+DO_RESTORE_MODEL = False
+
 trainingMode = TRAINING_MODE_SINGLE
+modelType = MODEL_TYPE_CNNMLP_PRESENCE
 
 doesUserAskQuit = False
 
@@ -59,20 +65,24 @@ def trainNn(nnConfig, \
         doRestoreModel = False
 
     # Constructing network with three outputs for each object: x, y, is_present
-    errorSum, errorSumAbs, keepProb = constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig)
-
-    # Restoring previous network
-    currentDir = os.getcwd()
-    pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
+    if modelType == MODEL_TYPE_CNNMLP_PRESENCE:
+        errorSum, errorSumAbs, keepProb = constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig)
+        averageErrorAbs = errorSumAbs / nnConfig.numObjects / 2
+    elif modelType == MODEL_TYPE_CNNMLP:
+        errorSum, errorSumAbs, keepProb = constructCnnMlp(phInput, phOutput, nnConfig)
+        averageErrorAbs = errorSumAbs / nnConfig.sizeOut
 
     #averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
-    averageErrorAbs = errorSumAbs / nnConfig.numObjects / 2
     absLoss = tf.reduce_sum(averageErrorAbs)
 
     #squared_deltas = tf.square(yConv - phOutput)
     loss = tf.reduce_sum(errorSum)
 
     train_step = tf.train.AdamOptimizer(nnConfig.optimizationStep).minimize(loss)
+
+    # Restoring previous network
+    currentDir = os.getcwd()
+    pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
 
     if doRestoreModel:
         print("model is restored")
@@ -224,7 +234,7 @@ def trainSingle(nnConfig, dataSet):
     phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
     trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, \
-            doCheckImprovement = True, doRestoreModel = True)
+            doCheckImprovement = True, doRestoreModel = DO_RESTORE_MODEL)
 
 dataSet = DataSet()
 isSuccess = dataSet.prepareDataset(DATASET_DIR)

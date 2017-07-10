@@ -26,12 +26,12 @@ TESTSET_DIR = "testset"
 MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
-DO_CROP = True
+DO_CROP = False
 
-top = 467
-left = 359
-right = 938
-bottom = 863
+top = 441
+left = 376
+right = 979
+bottom = 844
 
 currentDir = os.getcwd()
 pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME

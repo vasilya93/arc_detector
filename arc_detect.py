@@ -3,6 +3,8 @@ from image_check import getImageNames
 from subprocess import call
 from time import strftime
 from copy import deepcopy
+from random import randint
+
 import time
 import tensorflow as tf
 import os.path
@@ -103,10 +105,11 @@ for imageName in testImageNames:
             print("%s:\t\t %f \t %f \t %f" % (nnConfig.objectNames[i], probability, xRel, yRel))
             if probability > 1.0:
                 probability = 1.0
-            imageText = "%s: %f" % (nnConfig.objectNames[i], probability)
-            cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, (0, 0, 0))
+            markerColor = (randint(0, 255), randint(0, 255), randint(0, 255))
+            imageText = "%s" % (nnConfig.objectNames[i])
+            cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, markerColor)
             yTextCurrent += 30
-            cv2.circle(image, (objectX1, objectY1), 10, (255, 0, 255), 2)
+            cv2.circle(image, (objectX1, objectY1), 10, markerColor, 2)
 
     print "\r\n"
 

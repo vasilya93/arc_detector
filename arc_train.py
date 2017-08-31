@@ -34,8 +34,9 @@ MODEL_FILENAME = "model.ckpt"
 IMPROVE_COUNTER_LIMIT = 10
 
 DO_RESTORE_MODEL = False
+DO_SAVE_MODEL = True
 
-trainingMode = TRAINING_MODE_SINGLE
+trainingMode = TRAINING_MODE_TRY_ARCHITECTURES
 modelType = MODEL_TYPE_CNNMLP_PRESENCE
 
 doesUserAskQuit = False
@@ -72,6 +73,7 @@ def trainNn(nnConfig, \
         errorSum, errorSumAbs, keepProb = constructCnnMlp(phInput, phOutput, nnConfig)
         averageErrorAbs = errorSumAbs / nnConfig.sizeOut
 
+    print("the network is constructed")
     #averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
     absLoss = tf.reduce_sum(averageErrorAbs)
 
@@ -94,8 +96,10 @@ def trainNn(nnConfig, \
         initOp = tf.global_variables_initializer()
         session.run(initOp)
 
+    print("variables are initialized")
+
     # Training the network
-    testBatchSize = 1000
+    testBatchSize = 500
     iterationCounter = 0
     noImproveCounter = 0
     minAbsLoss = float("inf")
@@ -110,6 +114,7 @@ def trainNn(nnConfig, \
 
         if iterationCounter % 10 == 0:
             batchInput, batchOutput = dataSet.getTestingBatch(testBatchSize)
+            print("batch is obtained, session will be run now")
             absLossCurr = session.run(absLoss, {phInput: batchInput, \
                     phOutput: batchOutput, keepProb: 1.0})
             absLossCurr = absLossCurr / testBatchSize
@@ -165,9 +170,9 @@ def tryArchitectures(nnConfig, dataSet):
         nnConfig.channelsInp))
     phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
-    cnnLayerSizes = [[8, 16, 32, 64], [8, 16, 32, 48, 64], [8, 16, 32, 48, 64], \
-            [8, 16, 32, 64, 128]]
-    convWindowSizes = [[3, 3, 3, 3], [3, 3, 3, 3, 3], [3, 3, 3, 5, 5], [3, 3, 3, 3, 3]]
+    cnnLayerSizes = [[8, 16, 32, 48, 64], [8, 16, 32, 48, 64], \
+            [8, 16, 32, 64, 128], [8, 16, 32, 64, 96, 128]]
+    convWindowSizes = [[3, 3, 3, 3, 3], [3, 3, 3, 3, 3], [3, 3, 3, 3, 3], [3, 3, 3, 3, 3, 3]]
     layerSizes = [128, 256, 512, 768]
     for layerSize in layerSizes:
         nnConfig.mlpLayersSize = [layerSize]
@@ -233,7 +238,7 @@ def trainSingle(nnConfig, dataSet):
             nnConfig.channelsInp))
     phOutput = tf.placeholder(tf.float32, shape = (None, nnConfig.sizeOut))
 
-    trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = True, \
+    trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = DO_SAVE_MODEL, \
             doCheckImprovement = True, doRestoreModel = DO_RESTORE_MODEL)
 
 dataSet = DataSet()
@@ -258,7 +263,7 @@ nnConfig.numObjects = nnConfig.sizeOut / nnConfig.sizeOutObject
 # Beginning of network construction
 nnConfig.optimizationIterationsNum = 3001
 nnConfig.optimizationStep = 1e-3
-nnConfig.batchSize = 1000
+nnConfig.batchSize = 300
 nnConfig.mlpLayersSize = [256]
 nnConfig.cnnLayersSize = [8, 16, 32, 48, 64]
 nnConfig.convWindowSize = [3, 3, 3, 3, 3]

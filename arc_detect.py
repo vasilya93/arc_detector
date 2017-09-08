@@ -97,19 +97,21 @@ for imageName in testImageNames:
     yTextCurrent = 30
     for i in range(nnConfig.numObjects):
         probability = yCurr[0][i * nnConfig.sizeOutObject + 0]
-        xRel = yCurr[0][i * nnConfig.sizeOutObject + 1]
-        yRel = yCurr[0][i * nnConfig.sizeOutObject + 2]
-        objectX1 = np.int(xRel * currentWidthHalf + currentWidthHalf)
-        objectY1 = np.int(yRel * currentHeightHalf + currentHeightHalf)
+        if nnConfig.sizeOutObject >= 3
+            xRel = yCurr[0][i * nnConfig.sizeOutObject + 1]
+            yRel = yCurr[0][i * nnConfig.sizeOutObject + 2]
+            objectX1 = np.int(xRel * currentWidthHalf + currentWidthHalf)
+            objectY1 = np.int(yRel * currentHeightHalf + currentHeightHalf)
         if probability > 0.5:
-            print("%s:\t\t %f \t %f \t %f" % (nnConfig.objectNames[i], probability, xRel, yRel))
+            print("%s:\t\t %f" % (nnConfig.objectNames[i], probability))
             if probability > 1.0:
                 probability = 1.0
-            markerColor = (randint(0, 255), randint(0, 255), randint(0, 255))
-            imageText = "%s" % (nnConfig.objectNames[i])
-            cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, markerColor)
-            yTextCurrent += 30
-            cv2.circle(image, (objectX1, objectY1), 10, markerColor, 2)
+            if nnConfig.sizeOutObject >= 3
+                markerColor = (randint(0, 255), randint(0, 255), randint(0, 255))
+                imageText = "%s" % (nnConfig.objectNames[i])
+                cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, markerColor)
+                yTextCurrent += 30
+                cv2.circle(image, (objectX1, objectY1), 10, markerColor, 2)
 
     print "\r\n"
 

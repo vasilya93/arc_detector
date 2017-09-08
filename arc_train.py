@@ -6,26 +6,25 @@ from time import sleep
 import tensorflow as tf
 import os.path
 import os
+import dataset
 
 import numpy as np
 
 from construct_network import weightVariable, biasVariable, \
         conv2d, maxPool2x2, constructMlp, constructCnn
 from construct_network import constructCnnMlpPresenceIndication
+from construct_network import constructCnnMlpPresenceOnly
 from construct_network import constructCnnMlp
 
 from config_file import writeConfigFile
 from nn_config import NnConfig
-from prepare_dataset import DataSet
+from dataset import DataSet
 
 import threading
 
 TRAINING_MODE_TRY_ARCHITECTURES = 1
 TRAINING_MODE_DEEP = 2
 TRAINING_MODE_SINGLE = 3
-
-MODEL_TYPE_CNNMLP = 1
-MODEL_TYPE_CNNMLP_PRESENCE = 2
 
 DATASET_DIR = "dataset"
 MODEL_DIR = "model"
@@ -36,8 +35,8 @@ IMPROVE_COUNTER_LIMIT = 10
 DO_RESTORE_MODEL = False
 DO_SAVE_MODEL = True
 
-trainingMode = TRAINING_MODE_TRY_ARCHITECTURES
-modelType = MODEL_TYPE_CNNMLP_PRESENCE
+trainingMode = TRAINING_MODE_SINGLE
+modelType = dataset.TYPE_CNNMLP_PRES_ONLY
 
 doesUserAskQuit = False
 
@@ -66,12 +65,15 @@ def trainNn(nnConfig, \
         doRestoreModel = False
 
     # Constructing network with three outputs for each object: x, y, is_present
-    if modelType == MODEL_TYPE_CNNMLP_PRESENCE:
+    if modelType == dataset.TYPE_CNNMLP_PRESENCE:
         errorSum, errorSumAbs, keepProb = constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig)
         averageErrorAbs = errorSumAbs / nnConfig.numObjects / 2
-    elif modelType == MODEL_TYPE_CNNMLP:
+    elif modelType == dataset.TYPE_CNNMLP:
         errorSum, errorSumAbs, keepProb = constructCnnMlp(phInput, phOutput, nnConfig)
         averageErrorAbs = errorSumAbs / nnConfig.sizeOut
+    elif modelType == dataset.TYPE_CNNMLP_PRES_ONLY:
+        errorSum, errorSumAbs, keepProb = constructCnnMlpPresenceOnly(phInput, phOutput, nnConfig)
+        averageErrorAbs = errorSumAbs / nnConfig.numObjects
 
     print("the network is constructed")
     #averageAbsDelta = tf.abs(yConv - phOutput) / nnConfig.sizeOut
@@ -241,7 +243,7 @@ def trainSingle(nnConfig, dataSet):
     trainNn(nnConfig, phInput, phOutput, sess, dataSet, doSaveModel = DO_SAVE_MODEL, \
             doCheckImprovement = True, doRestoreModel = DO_RESTORE_MODEL)
 
-dataSet = DataSet()
+dataSet = DataSet(modelType)
 isSuccess = dataSet.prepareDataset(DATASET_DIR)
 if not isSuccess:
     print("Error: could not load dataset. Exiting...")
@@ -263,8 +265,8 @@ nnConfig.numObjects = nnConfig.sizeOut / nnConfig.sizeOutObject
 # Beginning of network construction
 nnConfig.optimizationIterationsNum = 3001
 nnConfig.optimizationStep = 1e-3
-nnConfig.batchSize = 300
-nnConfig.mlpLayersSize = [256]
+nnConfig.batchSize = 100
+nnConfig.mlpLayersSize = [128]
 nnConfig.cnnLayersSize = [8, 16, 32, 48, 64]
 nnConfig.convWindowSize = [3, 3, 3, 3, 3]
 

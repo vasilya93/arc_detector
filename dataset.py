@@ -11,11 +11,15 @@ from ast import literal_eval
 IMAGES_DIR = "images"
 MARKUP_DIR = "markup"
 
+TYPE_CNNMLP = 1
+TYPE_CNNMLP_PRESENCE = 2
+TYPE_CNNMLP_PRES_ONLY = 3
+
 # there must be a functions which accepts just filenames, and on the basis of
 # the filenames it prepares all the data and images
 
 class DataSet:
-    def __init__(self):
+    def __init__(self, dataset_type):
         self.trainingProportion_ = 0.85
         self.testingProportion_ = 0.10
         self.validationProportion_ = 1 - self.trainingProportion_ - \
@@ -37,15 +41,19 @@ class DataSet:
         self.outputTesting_ = None
         self.outputValidation_ = None
 
-        self.propertyNames_ = ["is_present", "x_rel", "y_rel"]
+        if dataset_type == TYPE_CNNMLP:
+            self.propertyNames_ = ["x_left_top", "y_left_top", \
+                    "x_right_top", "y_right_top", \
+                    "x_left_bottom", "y_left_bottom", \
+                    "x_right_bottom", "y_right_bottom"]
+        elif dataset_type == TYPE_CNNMLP_PRESENCE:
+            self.propertyNames_ = ["is_present", "x_rel", "y_rel"]
+        elif dataset_type == TYPE_CNNMLP_PRES_ONLY:
+            self.propertyNames_ = ["is_present"]
+        else:
+            self.propertyNames_ = ["x_rel", "y_rel"]
+
         self.objectNames_ = []
-
-        #self.propertyNames_ = ["x_left_top", "y_left_top", \
-        #        "x_right_top", "y_right_top", \
-        #        "x_left_bottom", "y_left_bottom", \
-        #        "x_right_bottom", "y_right_bottom"]
-
-        #self.propertyNames_ = ["x_rel", "y_rel"]
 
     def prepareDataset(self, parentDir):
         imagesDir = parentDir + "/" + IMAGES_DIR

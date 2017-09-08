@@ -152,4 +152,38 @@ def constructCnnMlpPresenceIndication(phInput, phOutput, nnConfig):
 
     return (errorSum, errorSumAbs, keepProb)
 
+def constructCnnMlpPresenceOnly(phInput, phOutput, nnConfig):
+    cnnOut = constructCnn(phInput, nnConfig.channelsInp, \
+            nnConfig.cnnLayersSize, \
+            nnConfig.convWindowSize)[0]
+    cnnOutSize = np.int(cnnOut.get_shape()[1])
 
+    (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+            nnConfig.mlpLayersSize, nnConfig.sizeOutObject)
+    outList = [outCurrent]
+
+    for i in range(1, nnConfig.numObjects):
+        (outCurrent, keepProb) = constructMlp(cnnOut, cnnOutSize, \
+                nnConfig.mlpLayersSize, nnConfig.sizeOutObject, keepProb)
+        outList.append(outCurrent)
+
+    out = tf.concat(outList, 1)
+
+    isPresentReal = tf.slice(phOutput, [0, 0], [-1, 1])
+    isPresentPredicted = tf.slice(out, [0, 0], [-1, 1])
+    isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
+    isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
+
+    errorSum = 0
+    errorSumAbs = 0
+
+    for i in range(0, nnConfig.numObjects):
+        isPresentReal = tf.slice(phOutput, [0, i], [-1, 1])
+        isPresentPredicted = tf.slice(out, [0, i], [-1, 1])
+        isPresentSqDelta = tf.square(isPresentReal - isPresentPredicted)
+        isPresentAbsDelta = tf.abs(isPresentReal - isPresentPredicted)
+
+        errorSum += isPresentSqDelta
+        errorSumAbs += isPresentSqDelta
+
+    return (errorSum, errorSumAbs, keepProb)

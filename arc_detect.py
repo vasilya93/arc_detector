@@ -19,6 +19,7 @@ from construct_network import weightVariable, biasVariable, \
 
 from nn_config import NnConfig
 from visualize_cnn_output import visualizeCnnOutput
+from divide_image import divide_image
 
 # TODO: consider possibility of variations in the object (different
 # colors of toothbrush packages, different patterns on a notebook)
@@ -29,11 +30,43 @@ MODEL_DIR = "model"
 CURRENT_MODEL_NAME = "current"
 MODEL_FILENAME = "model.ckpt"
 DO_CROP = False
+DO_DIVIDE = True
 
 top = 441
 left = 376
 right = 979
 bottom = 844
+
+def decipher_network_output(nn_output, nn_config, image):
+    yTextCurrent = 30
+    for i in range(nnConfig.numObjects):
+        probability = yCurr[0][i * nnConfig.sizeOutObject + 0]
+        if nnConfig.sizeOutObject >= 3
+            xRel = yCurr[0][i * nnConfig.sizeOutObject + 1]
+            yRel = yCurr[0][i * nnConfig.sizeOutObject + 2]
+            objectX1 = np.int(xRel * currentWidthHalf + currentWidthHalf)
+            objectY1 = np.int(yRel * currentHeightHalf + currentHeightHalf)
+        if probability > 0.5:
+            print("%s:\t\t %f" % (nnConfig.objectNames[i], probability))
+            if probability > 1.0:
+                probability = 1.0
+            if nnConfig.sizeOutObject >= 3
+                markerColor = (randint(0, 255), randint(0, 255), randint(0, 255))
+                imageText = "%s" % (nnConfig.objectNames[i])
+                cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, markerColor)
+                yTextCurrent += 30
+                cv2.circle(image, (objectX1, objectY1), 10, markerColor, 2)
+
+    print "\r\n"
+
+def network_output_to_object_list(nn_output, nn_config):
+    object_list = []
+    for i in range(nnConfig.numObjects):
+        probability = yCurr[0][i * nnConfig.sizeOutObject + 0]
+        if probability > 0.5:
+            object_list.append(nnConfig.objectNames[i])
+    return object_list
+
 
 currentDir = os.getcwd()
 pathCurrent = currentDir + "/" + MODEL_DIR + "/" + CURRENT_MODEL_NAME
@@ -83,40 +116,30 @@ for imageName in testImageNames:
         image = image[top:bottom, left:right]
 
     currentHeight, currentWidth, currentChannels = image.shape
+
+    # preparing matrix to be fed to the neural network
     currentHeightHalf = currentHeight / 2
     currentWidthHalf = currentWidth / 2
-    imageResized = np.float32(cv2.resize(image, (nnConfig.widthInp, nnConfig.heightInp)))
-    imageResized /= 255.0
-    inputData[0, :, :, :] = imageResized[:, :, :]
+    if not DO_DIVIDE:
+        imageResized = np.float32(cv2.resize(image, (nnConfig.widthInp, nnConfig.heightInp)))
+        imageResized /= 255.0
+        inputData[0, :, :, :] = imageResized[:, :, :]
+        yCurr, cnnOutCurr = sess.run([yConv, cnnOut], {x_image: inputData, keepProb: 1.0})
+        #cnnOutImage = visualizeCnnOutput(cnnOutCurr, cnnOutRescale = 10.0, doAddBorder = True)
+        decipher_network_output(yCurr, nnConfig, imageResized)
+    else:
+        image_parts = divide_image(image, nnConfig.heightInp, nnConfig.widthInp)
+        object_list = []
+        for image_part in image_parts:
+            inputData[0, :, :, :] = image_part[:, :, :]
+            yCurr = sess.run([yConv], {x_image: inputData, keepProb: 1.0})
+            object_list_current = network_output_to_object_list(yCurr, nnConfig)
+            for object_name in object_list_current:
+                if not object_name in object_list:
+                    object_list.append(object_name)
+        print object_list
+        print ""
 
-    start_time = time.time()
-    yCurr, cnnOutCurr = sess.run([yConv, cnnOut], {x_image: inputData, keepProb: 1.0})
-
-    cnnOutImage = visualizeCnnOutput(cnnOutCurr, cnnOutRescale = 10.0, doAddBorder = True)
-    
-    yTextCurrent = 30
-    for i in range(nnConfig.numObjects):
-        probability = yCurr[0][i * nnConfig.sizeOutObject + 0]
-        if nnConfig.sizeOutObject >= 3
-            xRel = yCurr[0][i * nnConfig.sizeOutObject + 1]
-            yRel = yCurr[0][i * nnConfig.sizeOutObject + 2]
-            objectX1 = np.int(xRel * currentWidthHalf + currentWidthHalf)
-            objectY1 = np.int(yRel * currentHeightHalf + currentHeightHalf)
-        if probability > 0.5:
-            print("%s:\t\t %f" % (nnConfig.objectNames[i], probability))
-            if probability > 1.0:
-                probability = 1.0
-            if nnConfig.sizeOutObject >= 3
-                markerColor = (randint(0, 255), randint(0, 255), randint(0, 255))
-                imageText = "%s" % (nnConfig.objectNames[i])
-                cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, markerColor)
-                yTextCurrent += 30
-                cv2.circle(image, (objectX1, objectY1), 10, markerColor, 2)
-
-    print "\r\n"
-
-    cv2.imwrite("demo/ten_obj/" + str(counter) + ".png", image)
-    counter += 1
     cv2.imshow("image", image)
-    cv2.imshow("cnn out", cnnOutImage)
+    #cv2.imshow("cnn out", cnnOutImage)
     cv2.waitKey(0)

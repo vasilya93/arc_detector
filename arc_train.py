@@ -138,12 +138,12 @@ def trainNn(nnConfig, \
 
         iterationCounter += 1
 
-    validationSetSize = dataSet.getValidationSetSize()
-    batchInput, batchOutput = dataSet.getValidationBatch(validationSetSize)
-    absLossCurr = session.run(absLoss, {phInput: batchInput, \
-            phOutput: batchOutput, keepProb: 1.0})
-    absLossCurr = absLossCurr / validationSetSize
-    print("Info: average error for validation network is %f" % absLossCurr)
+    #validationSetSize = dataSet.getValidationSetSize()
+    #batchInput, batchOutput = dataSet.getValidationBatch(validationSetSize)
+    #absLossCurr = session.run(absLoss, {phInput: batchInput, \
+    #        phOutput: batchOutput, keepProb: 1.0})
+    #absLossCurr = absLossCurr / validationSetSize
+    #print("Info: average error for validation network is %f" % absLossCurr)
     nnConfig.error = absLossCurr
 
     # Saving the network
@@ -265,7 +265,7 @@ nnConfig.numObjects = nnConfig.sizeOut / nnConfig.sizeOutObject
 # Beginning of network construction
 nnConfig.optimizationIterationsNum = 3001
 nnConfig.optimizationStep = 1e-3
-nnConfig.batchSize = 100
+nnConfig.batchSize = 400
 nnConfig.mlpLayersSize = [128]
 nnConfig.cnnLayersSize = [8, 16, 32, 48, 64]
 nnConfig.convWindowSize = [3, 3, 3, 3, 3]

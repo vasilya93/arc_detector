@@ -41,7 +41,7 @@ def decipher_network_output(nn_output, nn_config, image):
     yTextCurrent = 30
     for i in range(nnConfig.numObjects):
         probability = yCurr[0][i * nnConfig.sizeOutObject + 0]
-        if nnConfig.sizeOutObject >= 3
+        if nnConfig.sizeOutObject >= 3:
             xRel = yCurr[0][i * nnConfig.sizeOutObject + 1]
             yRel = yCurr[0][i * nnConfig.sizeOutObject + 2]
             objectX1 = np.int(xRel * currentWidthHalf + currentWidthHalf)
@@ -50,7 +50,7 @@ def decipher_network_output(nn_output, nn_config, image):
             print("%s:\t\t %f" % (nnConfig.objectNames[i], probability))
             if probability > 1.0:
                 probability = 1.0
-            if nnConfig.sizeOutObject >= 3
+            if nnConfig.sizeOutObject >= 3:
                 markerColor = (randint(0, 255), randint(0, 255), randint(0, 255))
                 imageText = "%s" % (nnConfig.objectNames[i])
                 cv2.putText(image, imageText, (10, yTextCurrent), cv2.FONT_HERSHEY_TRIPLEX, .7, markerColor)
@@ -130,9 +130,12 @@ for imageName in testImageNames:
     else:
         image_parts = divide_image(image, nnConfig.heightInp, nnConfig.widthInp)
         object_list = []
-        for image_part in image_parts:
+        for i, image_part in enumerate(image_parts):
+            image_part = np.float32(image_part)
+            image_part /= 255.0
+            print i
             inputData[0, :, :, :] = image_part[:, :, :]
-            yCurr = sess.run([yConv], {x_image: inputData, keepProb: 1.0})
+            yCurr = sess.run(yConv, {x_image: inputData, keepProb: 1.0})
             object_list_current = network_output_to_object_list(yCurr, nnConfig)
             for object_name in object_list_current:
                 if not object_name in object_list:
